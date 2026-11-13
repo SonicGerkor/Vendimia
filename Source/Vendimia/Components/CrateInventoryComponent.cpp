@@ -21,6 +21,7 @@ bool UCrateInventoryComponent::AddGrapeQuality(float Quality)
 	}
 
 	ClusterQualities.Add(Quality);
+	
 	return true;
 }
 
