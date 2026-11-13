@@ -119,6 +119,11 @@ void AVendimiaCharacter::OnCrouchTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 {
+	if (SnipMontage)
+	{
+		PlayAnimMontage(SnipMontage);
+	}
+	
 	ExecuteSnipTrace(300.0f);
 }
 

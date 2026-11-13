@@ -12,6 +12,7 @@ class UInputMappingContext;
 class UInputAction;
 class AGrapePickup;
 class UGrapeVarietyData;
+class UAnimMontage;
 
 UCLASS()
 class VENDIMIA_API AVendimiaCharacter : public ACharacter
@@ -61,6 +62,10 @@ protected:
 	/** Look Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> CrouchAction;
+	
+	/** Montage played when snipping a vine */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<UAnimMontage> SnipMontage;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPlayerSkillsComponent> PlayerSkills;
