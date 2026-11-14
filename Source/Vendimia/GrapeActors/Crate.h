@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Vendimia/Interfaces/InteractableInterface.h"
 #include "Crate.generated.h"
 
 class UStaticMeshComponent;
@@ -12,7 +13,7 @@ class UCrateInventoryComponent;
 class UPrimitiveComponent;
 
 UCLASS()
-class VENDIMIA_API ACrate : public AActor
+class VENDIMIA_API ACrate : public AActor, public IInteractableInterface
 {
 	GENERATED_BODY()
 
@@ -28,6 +29,16 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UCrateInventoryComponent> CrateInventory;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Crate State")
+	bool bIsCarried = false;
+	
+	/** Socket name on the player mesh to attach the crate when carried */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Crate State")
+	FName CarrySocketName = TEXT("Socket_Crate");
+	
+	// IInteractableInterface implementation
+	virtual void Interact_Implementation(APawn* InteractingPawn) override;
 
 	UFUNCTION()
 	void OnCatchBoxOverlap(

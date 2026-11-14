@@ -6,6 +6,8 @@
 #include "Animation/AnimInstance.h"
 #include "VendimiaAnimInstance.generated.h"
 
+class AVendimiaCharacter;
+
 UCLASS()
 class VENDIMIA_API UVendimiaAnimInstance : public UAnimInstance
 {
@@ -19,7 +21,7 @@ public:
 protected:
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
-	TObjectPtr<class AVendimiaCharacter> VendimiaCharacter;
+	TObjectPtr<AVendimiaCharacter> VendimiaCharacter;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	float GroundSpeed = 0.0f;

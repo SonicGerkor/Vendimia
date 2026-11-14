@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "DrawDebugHelpers.h"
 #include "Vendimia/Components/PlayerSkillsComponent.h"
 #include "Vendimia/GrapeActors/GrapePickup.h"
 #include "Vendimia/Interfaces/HarvestableInterface.h"
@@ -79,6 +80,15 @@ void AVendimiaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 void AVendimiaCharacter::Move(const FInputActionValue& Value)
 {
+	// Block movement while the snip montage is playing
+	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance())
+	{
+		if (GetMesh()->GetAnimInstance()->Montage_IsPlaying(SnipMontage))
+		{
+			return;
+		}
+	}
+	
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 
 	if (Controller)
@@ -107,6 +117,15 @@ void AVendimiaCharacter::Look(const FInputActionValue& Value)
 
 void AVendimiaCharacter::OnCrouchTriggered(const FInputActionValue& Value)
 {
+	// Block movement while the snip montage is playing
+	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance())
+	{
+		if (GetMesh()->GetAnimInstance()->Montage_IsPlaying(SnipMontage))
+		{
+			return;
+		}
+	}
+	
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -119,42 +138,49 @@ void AVendimiaCharacter::OnCrouchTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 {
-	if (SnipMontage)
+	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance())
 	{
-		PlayAnimMontage(SnipMontage);
+		if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(SnipMontage))
+		{
+			// Stop any current walking/running momentum immediately
+			GetCharacterMovement()->StopMovementImmediately();
+
+			PlayAnimMontage(SnipMontage);
+		}
 	}
-	
-	ExecuteSnipTrace(300.0f);
 }
 
-void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance)
+void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance, float TraceRadius)
 {
-	FVector StartLocation;
-	FRotator CameraRotation;
-	
-	if (Controller)
+	if (!GetMesh())
 	{
-		Controller->GetPlayerViewPoint(StartLocation, CameraRotation);
-	}
-	else
-	{
-		StartLocation = GetActorLocation();
-		CameraRotation = GetActorRotation();
+		return;
 	}
 
-	FVector EndLocation = StartLocation + (CameraRotation.Vector() * TraceDistance);
+	const FVector StartLocation = GetMesh()->GetSocketLocation(HandSocketName);
+	const FVector EndLocation = StartLocation + (GetActorForwardVector() * FMath::Max(TraceDistance, 1.0f));
 
 	FHitResult HitResult;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
-	bool bHit = GetWorld()->LineTraceSingleByChannel(
+	const FCollisionShape SphereShape = FCollisionShape::MakeSphere(TraceRadius);
+
+	const bool bHit = GetWorld()->SweepSingleByChannel(
 		HitResult,
 		StartLocation,
 		EndLocation,
+		FQuat::Identity,
 		ECC_Visibility,
+		SphereShape,
 		QueryParams
 	);
+
+	if (bDrawDebugTraces)
+	{
+		const FColor DebugColor = bHit ? FColor::Green : FColor::Red;
+		DrawDebugSphere(GetWorld(), bHit ? HitResult.Location : StartLocation, TraceRadius, 12, DebugColor, false, 2.0f);
+	}
 
 	if (bHit && HitResult.GetActor())
 	{
@@ -165,23 +191,26 @@ void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance)
 			float OutRotPercentage = 0.0f;
 			UGrapeVarietyData* OutVariety = nullptr;
 
-			bool bSuccess = IHarvestableInterface::Execute_OnSnipped(HitActor, OutRotPercentage, OutVariety);
+			const bool bSuccess = IHarvestableInterface::Execute_OnSnipped(HitActor, OutRotPercentage, OutVariety);
 
 			if (bSuccess)
 			{
 				FActorSpawnParameters SpawnParams;
 				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-			
-				FTransform HandTransform = GetMesh()->GetSocketTransform(HandSocketName);
-				
+
+				// Spawn at RightHandSocket (or change to Socket_GrapeHand if you use a separate socket for holding)
+				const FTransform HandTransform = GetMesh()->GetSocketTransform(HandSocketName);
+				UClass* ClassToSpawn = GrapePickupClass ? GrapePickupClass.Get() : AGrapePickup::StaticClass();
+
 				AGrapePickup* SpawnedGrape = GetWorld()->SpawnActor<AGrapePickup>(
-					AGrapePickup::StaticClass(), 
+					ClassToSpawn, 
 					HandTransform, 
 					SpawnParams
 				);
-			
+
 				if (SpawnedGrape)
 				{
+					SpawnedGrape->InitGrape(OutRotPercentage, OutVariety);
 					SpawnedGrape->AttachToComponent(
 						GetMesh(), 
 						FAttachmentTransformRules::SnapToTargetIncludingScale, 
@@ -195,46 +224,32 @@ void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance)
 
 void AVendimiaCharacter::OnInteractTriggered(const FInputActionValue& Value)
 {
-	ExecuteInteractTrace(300.0f);
+	ExecuteInteractOverlap();
 }
 
-void AVendimiaCharacter::ExecuteInteractTrace(float TraceDistance)
+void AVendimiaCharacter::ExecuteInteractOverlap()
 {
-	FVector StartLocation;
-	FRotator CameraRotation;
-	
-	if (Controller)
+	TArray<AActor*> OverlappingActors;
+	GetOverlappingActors(OverlappingActors);
+
+	AActor* ClosestInteractable = nullptr;
+	float ClosestDistanceSq = MAX_FLT;
+
+	for (AActor* Actor : OverlappingActors)
 	{
-		Controller->GetPlayerViewPoint(StartLocation, CameraRotation);
-	}
-	else
-	{
-		StartLocation = GetActorLocation();
-		CameraRotation = GetActorRotation();
-	}
-
-	FVector EndLocation = StartLocation + (CameraRotation.Vector() * TraceDistance);
-
-	FHitResult HitResult;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-
-	const bool bHit = GetWorld()->LineTraceSingleByChannel(
-		HitResult,
-		StartLocation,
-		EndLocation,
-		ECC_Visibility,
-		QueryParams
-	);
-
-	if (bHit && HitResult.GetActor())
-	{
-		AActor* HitActor = HitResult.GetActor();
-
-		// Check if the hit actor implements our C++ Interactable Interface
-		if (HitActor->GetClass()->ImplementsInterface(UInteractableInterface::StaticClass()))
+		if (Actor && Actor != this && Actor->GetClass()->ImplementsInterface(UInteractableInterface::StaticClass()))
 		{
-			IInteractableInterface::Execute_Interact(HitActor, this);
+			const float DistSq = FVector::DistSquared(GetActorLocation(), Actor->GetActorLocation());
+			if (DistSq < ClosestDistanceSq)
+			{
+				ClosestDistanceSq = DistSq;
+				ClosestInteractable = Actor;
+			}
 		}
+	}
+
+	if (ClosestInteractable)
+	{
+		IInteractableInterface::Execute_Interact(ClosestInteractable, this);
 	}
 }

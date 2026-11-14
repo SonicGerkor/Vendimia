@@ -28,11 +28,11 @@ public:
 	
 	// Performs the harvest snip trace
 	UFUNCTION(BlueprintCallable, Category = "Harvesting")
-	void ExecuteSnipTrace(float TraceDistance = 300.0f);
+	void ExecuteSnipTrace(float TraceDistance = 200.0f, float TraceRadius = 10.0f);
 
 	// Performs the general interaction trace
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
-	void ExecuteInteractTrace(float TraceDistance = 300.0f);
+	void ExecuteInteractOverlap();
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FName HandSocketName;
@@ -69,6 +69,9 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPlayerSkillsComponent> PlayerSkills;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting")
+	TSubclassOf<AGrapePickup> GrapePickupClass;
 
 	// Input handler functions
 	void Move(const FInputActionValue& Value);
@@ -80,4 +83,8 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	void OnInteractTriggered(const FInputActionValue& Value);
+	
+	/** Toggle visual debug spheres for traces in editor */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvesting|Debug")
+	bool bDrawDebugTraces = true;
 };

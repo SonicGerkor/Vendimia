@@ -5,6 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Vendimia/Character/VendimiaCharacter.h"
 #include "Vendimia/Components/CrateInventoryComponent.h"
 #include "Vendimia/Data/VineyardData.h"
 #include "Vendimia/Game/HarvestGameState.h"
@@ -23,6 +24,7 @@ ACrate::ACrate()
 	CatchBox->SetCollisionObjectType(ECC_WorldDynamic);
 	CatchBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 	CatchBox->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	CatchBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 
 	CrateInventory = CreateDefaultSubobject<UCrateInventoryComponent>(TEXT("CrateInventory"));
 }
@@ -39,6 +41,37 @@ void ACrate::BeginPlay()
 		{
 			CrateInventory->MaxCapacity = GameState->CurrentVineyardData->PlotCrateCapacity;
 		}
+	}
+}
+
+void ACrate::Interact_Implementation(APawn* InteractingPawn)
+{
+	const ACharacter* Character = Cast<AVendimiaCharacter>(InteractingPawn);
+	if (!Character)
+	{
+		return;
+	}
+
+	if (!bIsCarried)
+	{
+		// Pick up the crate
+		bIsCarried = true;
+		CrateMesh->SetSimulatePhysics(false);
+		CrateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+		AttachToComponent(
+			Character->GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			CarrySocketName
+		);
+	}
+	else
+	{
+		// Drop the crate
+		bIsCarried = false;
+		DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+		CrateMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		CrateMesh->SetSimulatePhysics(true);
 	}
 }
 
