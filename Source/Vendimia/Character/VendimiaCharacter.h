@@ -67,11 +67,23 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<UAnimMontage> SnipMontage;
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting")
+	TSubclassOf<AGrapePickup> GrapePickupClass;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPlayerSkillsComponent> PlayerSkills;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting")
-	TSubclassOf<AGrapePickup> GrapePickupClass;
+	/** Tracks how many snips have fired during the current montage playback */
+	UPROPERTY(BlueprintReadOnly, Category = "Harvesting")
+	int32 CurrentActionSnipCount = 0;
+
+	/** Blend-out time when stopping the montage early after 1 or 2 snips */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
+	float EarlySnipBlendOutTime = 0.25f;
+	
+	/** Called a few frames after a snip by AN_CheckSnipCombo to stop the montage early if at max skill tier */
+	UFUNCTION(BlueprintCallable, Category = "Harvesting")
+	void CheckSnipComboProgress();
 
 	// Input handler functions
 	void Move(const FInputActionValue& Value);

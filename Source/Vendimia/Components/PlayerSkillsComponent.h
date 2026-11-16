@@ -16,15 +16,25 @@ public:
 	
 	UPlayerSkillsComponent();
 
-	// Gets the current level of a specific skill from the active save game
-	UFUNCTION(BlueprintPure, Category = "Skills")
-	int32 GetSkillLevel(FGameplayTag SkillTag) const;
+	/** Gameplay Tag used to identify the Snip / Harvesting skill in the save game */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skills|Snip")
+	FGameplayTag SnipSkillTag;
 
-	// Checks if the player has at least a specific level in a skill
-	UFUNCTION(BlueprintPure, Category = "Skills")
-	bool HasSkillLevel(FGameplayTag SkillTag, int32 RequiredLevel) const;
+	/** Total successful snips required to unlock the 2nd snip in the montage */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skills|Snip")
+	int32 SnipsForTier2 = 15;
 
-	// Increments or sets a skill level and triggers a save
+	/** Total successful snips required to unlock all 3 snips in the montage */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skills|Snip")
+	int32 SnipsForTier3 = 45;
+
+	UFUNCTION(BlueprintPure, Category = "Skills")
+	int32 GetSkillPoints(FGameplayTag SkillTag) const;
+
 	UFUNCTION(BlueprintCallable, Category = "Skills")
-	void SetSkillLevel(FGameplayTag SkillTag, int32 NewLevel);
+	void AddSkillUse(FGameplayTag SkillTag, int32 Amount = 1);
+
+	/** Returns 1, 2, or 3 based on the player's current Snip skill usage */
+	UFUNCTION(BlueprintPure, Category = "Skills|Snip")
+	int32 GetMaxSnipsPerAction() const;
 };

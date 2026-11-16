@@ -142,6 +142,8 @@ void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 	{
 		if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(SnipMontage))
 		{
+			CurrentActionSnipCount = 0;
+			
 			// Stop any current walking/running momentum immediately
 			GetCharacterMovement()->StopMovementImmediately();
 
@@ -157,6 +159,8 @@ void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance, float TraceRadius
 		return;
 	}
 
+	CurrentActionSnipCount++;
+	
 	const FVector StartLocation = GetMesh()->GetSocketLocation(HandSocketName);
 	const FVector EndLocation = StartLocation + (GetActorForwardVector() * FMath::Max(TraceDistance, 1.0f));
 
@@ -195,6 +199,12 @@ void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance, float TraceRadius
 
 			if (bSuccess)
 			{
+				// Progress the player's snip skill on every successful harvest
+				if (PlayerSkills)
+				{
+					PlayerSkills->AddSkillUse(PlayerSkills->SnipSkillTag, 1);
+				}
+				
 				FActorSpawnParameters SpawnParams;
 				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
@@ -251,5 +261,24 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 	if (ClosestInteractable)
 	{
 		IInteractableInterface::Execute_Interact(ClosestInteractable, this);
+	}
+}
+
+void AVendimiaCharacter::CheckSnipComboProgress()
+{
+	if (!GetMesh() || !SnipMontage)
+	{
+		return;
+	}
+
+	const int32 MaxSnips = PlayerSkills ? PlayerSkills->GetMaxSnipsPerAction() : 1;
+
+	// If the player has reached their current skill limit (1 or 2 snips), blend out smoothly now
+	if (CurrentActionSnipCount >= MaxSnips && CurrentActionSnipCount < 3)
+	{
+		if (UAnimInstance* AnimInst = GetMesh()->GetAnimInstance())
+		{
+			AnimInst->Montage_Stop(EarlySnipBlendOutTime, SnipMontage);
+		}
 	}
 }

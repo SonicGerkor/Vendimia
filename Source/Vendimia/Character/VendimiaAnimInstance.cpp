@@ -2,6 +2,7 @@
 
 #include "VendimiaAnimInstance.h"
 #include "VendimiaCharacter.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 void UVendimiaAnimInstance::NativeInitializeAnimation()
