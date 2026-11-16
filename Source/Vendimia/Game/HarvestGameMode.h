@@ -22,6 +22,9 @@ public:
 	FString SaveSlotName = TEXT("Profile1");
 
 	UFUNCTION(BlueprintCallable, Category = "SaveSystem")
+	void InitSaveGame();
+	
+	UFUNCTION(BlueprintCallable, Category = "SaveSystem")
 	void AddFundsAndSave(float AmountToAdd);
 
 	UFUNCTION(BlueprintCallable, Category = "SaveSystem")

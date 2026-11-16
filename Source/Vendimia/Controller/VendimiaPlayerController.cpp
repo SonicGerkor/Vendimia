@@ -5,6 +5,4 @@
 void AVendimiaPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-
-
 }

@@ -8,6 +8,11 @@ void AHarvestGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	InitSaveGame();
+}
+
+void AHarvestGameMode::InitSaveGame()
+{
 	if (UGameplayStatics::DoesSaveGameExist(SaveSlotName, 0))
 	{
 		ActiveSave = Cast<UVendimiaSaveGame>(UGameplayStatics::LoadGameFromSlot(SaveSlotName, 0));
