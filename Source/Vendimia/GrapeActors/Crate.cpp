@@ -9,6 +9,8 @@
 #include "Vendimia/Components/CrateInventoryComponent.h"
 #include "Vendimia/Data/VineyardData.h"
 #include "Vendimia/Game/HarvestGameState.h"
+#include "Vendimia/UI/VendimiaHUD.h"
+#include "Vendimia/UI/VendimiaHUDWidget.h"
 
 ACrate::ACrate()
 {
@@ -89,6 +91,21 @@ void ACrate::OnCatchBoxOverlap(
 		if (bAdded)
 		{
 			Grape->Destroy();
+
+			// Flash the UI with the updated crate count
+			if (const APlayerController* PC = GetWorld()->GetFirstPlayerController())
+			{
+				if (const AVendimiaHUD* HUD = Cast<AVendimiaHUD>(PC->GetHUD()))
+				{
+					if (UVendimiaHUDWidget* GameplayHUD = HUD->GetGameplayHUD())
+					{
+						GameplayHUD->UpdateCrateCount(
+							CrateInventory->ClusterQualities.Num(), 
+							CrateInventory->MaxCapacity
+						);
+					}
+				}
+			}
 		}
 	}
 }

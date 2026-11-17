@@ -9,6 +9,9 @@
 #include "Vendimia/FunctionLibrary/HarvestScoringLibrary.h"
 #include "Vendimia/Game/HarvestGameMode.h"
 #include "Vendimia/Game/HarvestGameState.h"
+#include "Vendimia/Game/VendimiaSaveGame.h"
+#include "Vendimia/UI/VendimiaHUD.h"
+#include "Vendimia/UI/VendimiaHUDWidget.h"
 
 ATrailerScale::ATrailerScale()
 {
@@ -51,6 +54,17 @@ void ATrailerScale::Interact_Implementation(APawn* InteractingPawn)
 		if (AHarvestGameMode* GameMode = Cast<AHarvestGameMode>(UGameplayStatics::GetGameMode(this)))
 		{
 			GameMode->AddFundsAndSave(Payout);
+
+			// --- Flash the UI with the new funds ---
+			if (AVendimiaHUD* HUD = Cast<AVendimiaHUD>(GetWorld()->GetFirstPlayerController()->GetHUD()))
+			{
+				if (UVendimiaHUDWidget* GameplayHUD = HUD->GetGameplayHUD())
+				{
+					// We cast to int32 here assuming UpdateFunds expects integers. 
+					// Ensure GameMode->ActiveSave is public, or replace with a getter like GameMode->GetTotalFunds()
+					GameplayHUD->UpdateFunds(FMath::RoundToInt(GameMode->ActiveSave->TotalFunds), FMath::RoundToInt(Payout));
+				}
+			}
 		}
 
 		// Reset shift: destroy full crate and spawn a new empty one at the drop point transform

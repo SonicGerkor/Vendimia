@@ -23,6 +23,20 @@ public:
 	/** Highlights or dims the [R] Snip prompt */
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void SetSnipPromptActive(bool bIsActive);
+	
+	UFUNCTION(BlueprintCallable, Category = "HUD|Economy")
+	void UpdateCrateCount(int32 CurrentGrapes, int32 MaxGrapes);
+
+	UFUNCTION(BlueprintCallable, Category = "HUD|Economy")
+	void UpdateFunds(int32 NewTotalFunds, int32 AddedFunds);
+
+	/** Implement this in WBP_GameplayHUD using a UMG Animation to fade the Crate panel in and out */
+	UFUNCTION(BlueprintImplementableEvent, Category = "HUD|Economy")
+	void PlayCrateFadeAnimation();
+
+	/** Implement this in WBP_GameplayHUD using a UMG Animation to fade the Funds panel in and out */
+	UFUNCTION(BlueprintImplementableEvent, Category = "HUD|Economy")
+	void PlayFundsFadeAnimation();
 
 protected:
 	
@@ -43,4 +57,10 @@ protected:
 	/** Opacity when the action is ready/available */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|Style")
 	float ActivePromptOpacity = 1.0f;
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UTextBlock> Txt_CrateCount;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UTextBlock> Txt_Funds;
 };

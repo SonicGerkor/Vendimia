@@ -19,4 +19,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SaveData")
 	TMap<FGameplayTag, int32> SkillLevels;
+	
+	UPROPERTY(BlueprintReadWrite, Category = "Audio")
+	float MusicVolume = 1.0f;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Audio")
+	float FXVolume = 1.0f;
 };
