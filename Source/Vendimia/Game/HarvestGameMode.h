@@ -30,6 +30,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SaveSystem")
 	void SaveCurrentProfile();
 	
+	/** Increments the crate tier in the save file and updates all active crates in the level */
+	UFUNCTION(BlueprintCallable, Exec, Category = "Upgrades")
+	void UpgradeCrateTier();
+	
 protected:
 	
 	virtual void BeginPlay() override;

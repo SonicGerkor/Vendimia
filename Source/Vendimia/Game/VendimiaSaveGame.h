@@ -20,6 +20,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SaveData")
 	TMap<FGameplayTag, int32> SkillLevels;
 	
+	/** Current unlocked crate/bucket tier (0 = starter bucket, up to 4) */
+	UPROPERTY(BlueprintReadWrite, Category = "Upgrades")
+	int32 CrateTierIndex = 0;
+	
 	UPROPERTY(BlueprintReadWrite, Category = "Audio")
 	float MusicVolume = 1.0f;
 

@@ -8,7 +8,9 @@
 #include "Vendimia/Character/VendimiaCharacter.h"
 #include "Vendimia/Components/CrateInventoryComponent.h"
 #include "Vendimia/Data/VineyardData.h"
+#include "Vendimia/Game/HarvestGameMode.h"
 #include "Vendimia/Game/HarvestGameState.h"
+#include "Vendimia/Game/VendimiaSaveGame.h"
 #include "Vendimia/UI/VendimiaHUD.h"
 #include "Vendimia/UI/VendimiaHUDWidget.h"
 
@@ -37,12 +39,20 @@ void ACrate::BeginPlay()
 
 	CatchBox->OnComponentBeginOverlap.AddDynamic(this, &ACrate::OnCatchBoxOverlap);
 
-	if (const AHarvestGameState* GameState = Cast<AHarvestGameState>(UGameplayStatics::GetGameState(this)))
+	// Fallback to VineyardData capacity if no CrateTiers are configured yet in BP_Crate
+	if (CrateTiers.Num() == 0)
 	{
-		if (GameState->CurrentVineyardData)
+		if (const AHarvestGameState* GameState = Cast<AHarvestGameState>(UGameplayStatics::GetGameState(this)))
 		{
-			CrateInventory->MaxCapacity = GameState->CurrentVineyardData->PlotCrateCapacity;
+			if (GameState->CurrentVineyardData)
+			{
+				CrateInventory->MaxCapacity = GameState->CurrentVineyardData->PlotCrateCapacity;
+			}
 		}
+	}
+	else
+	{
+		RefreshTierFromSave();
 	}
 }
 
@@ -99,13 +109,51 @@ void ACrate::OnCatchBoxOverlap(
 				{
 					if (UVendimiaHUDWidget* GameplayHUD = HUD->GetGameplayHUD())
 					{
-						GameplayHUD->UpdateCrateCount(
-							CrateInventory->ClusterQualities.Num(), 
-							CrateInventory->MaxCapacity
-						);
+						GameplayHUD->UpdateCrateCount(CrateInventory->ClusterQualities.Num(), CrateInventory->MaxCapacity);
 					}
 				}
 			}
 		}
+	}
+}
+
+void ACrate::RefreshTierFromSave()
+{
+	int32 SavedTier = 0;
+
+	if (const AHarvestGameMode* GameMode = Cast<AHarvestGameMode>(UGameplayStatics::GetGameMode(this)))
+	{
+		if (GameMode->ActiveSave)
+		{
+			SavedTier = GameMode->ActiveSave->CrateTierIndex;
+		}
+	}
+
+	ApplyCrateTier(SavedTier);
+}
+
+void ACrate::ApplyCrateTier(int32 TierIndex)
+{
+	if (CrateTiers.Num() == 0)
+	{
+		return;
+	}
+
+	const int32 ValidIndex = FMath::Clamp(TierIndex, 0, CrateTiers.Num() - 1);
+	const FCrateTierInfo& TierInfo = CrateTiers[ValidIndex];
+
+	if (TierInfo.CrateMesh && CrateMesh)
+	{
+		CrateMesh->SetStaticMesh(TierInfo.CrateMesh);
+	}
+
+	if (CrateInventory)
+	{
+		CrateInventory->MaxCapacity = TierInfo.MaxCapacity;
+	}
+
+	if (CatchBox)
+	{
+		CatchBox->SetBoxExtent(TierInfo.CatchBoxExtent);
 	}
 }
