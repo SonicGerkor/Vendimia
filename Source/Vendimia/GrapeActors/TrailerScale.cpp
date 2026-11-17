@@ -77,6 +77,12 @@ void ATrailerScale::EvaluateCrate(ACrate* CrateToEvaluate, float& OutAvgQuality,
 	OutAvgQuality = 0.0f;
 	OutPayout = 0.0f;
 	bOutSuccess = false;
+	
+	if (!CrateToEvaluate->CrateInventory->IsCrateFull())
+	{
+		// DISPLAY A UI MESSAGE THAT MORE VINES ARE NEEDED
+		return;
+	}
 
 	if (!CrateToEvaluate || !CrateToEvaluate->CrateInventory)
 	{

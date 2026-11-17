@@ -7,6 +7,7 @@
 #include "Vendimia/Interfaces/HarvestableInterface.h"
 #include "GrapeVine.generated.h"
 
+class UBoxComponent;
 class UStaticMeshComponent;
 class UGrapeVarietyData;
 
@@ -30,6 +31,20 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Harvest Rules")
 	TObjectPtr<UGrapeVarietyData> ActiveGrapeVariety;
+	
+	/** The area along the wire where clusters are allowed to spawn */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Vine Components")
+	TObjectPtr<UBoxComponent> ClusterSpawnVolume;
+
+	/** The 3D mesh to use for individual grape clusters */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vine Generation")
+	TObjectPtr<UStaticMesh> ClusterMeshAsset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vine Generation")
+	int32 MinClusters = 4;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vine Generation")
+	int32 MaxClusters = 8;
 
 	// Interface implementation override
 	virtual bool OnSnipped_Implementation(float& OutRotPercentage, UGrapeVarietyData*& OutGrapeVariety) override;
@@ -37,4 +52,8 @@ public:
 protected:
 	
 	virtual void BeginPlay() override;
+	
+	/** Tracks the dynamically spawned clusters so we can hide them one by one */
+	UPROPERTY(Transient)
+	TArray<UStaticMeshComponent*> ActiveClusterMeshes;
 };

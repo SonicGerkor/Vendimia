@@ -9,6 +9,7 @@
 #include "DrawDebugHelpers.h"
 #include "Vendimia/Components/PlayerSkillsComponent.h"
 #include "Vendimia/GrapeActors/GrapePickup.h"
+#include "Vendimia/GrapeActors/TrailerScale.h"
 #include "Vendimia/Interfaces/HarvestableInterface.h"
 #include "Vendimia/Interfaces/InteractableInterface.h"
 
@@ -239,6 +240,30 @@ void AVendimiaCharacter::OnInteractTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::ExecuteInteractOverlap()
 {
+	// 1. If we are already carrying an interactable (the crate), interact with it to put it down
+	TArray<AActor*> AttachedActors;
+	GetAttachedActors(AttachedActors);
+
+	for (AActor* Attached : AttachedActors)
+	{
+		if (Attached && Attached->GetClass()->ImplementsInterface(UInteractableInterface::StaticClass()))
+		{
+			// Drop the crate
+			IInteractableInterface::Execute_Interact(Attached, this);
+
+			// If the crate was dropped inside the scale's DropPoint, trigger the scale immediately
+			TArray<AActor*> OverlappingScales;
+			Attached->GetOverlappingActors(OverlappingScales, ATrailerScale::StaticClass());
+			if (OverlappingScales.Num() > 0)
+			{
+				IInteractableInterface::Execute_Interact(OverlappingScales[0], this);
+			}
+
+			return;
+		}
+	}
+	
+	// 2. Otherwise, find the closest overlapping interactable to pick up or trigger
 	TArray<AActor*> OverlappingActors;
 	GetOverlappingActors(OverlappingActors);
 

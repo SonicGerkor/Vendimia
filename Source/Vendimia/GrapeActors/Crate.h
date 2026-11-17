@@ -48,6 +48,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UBoxComponent> CatchBox;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UBoxComponent> InteractBox;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UCrateInventoryComponent> CrateInventory;
@@ -77,6 +80,18 @@ public:
 	
 	// IInteractableInterface implementation
 	virtual void Interact_Implementation(APawn* InteractingPawn) override;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crate Visuals")
+	TObjectPtr<UStaticMeshComponent> FillLayer_Low;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crate Visuals")
+	TObjectPtr<UStaticMeshComponent> FillLayer_Med;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crate Visuals")
+	TObjectPtr<UStaticMeshComponent> FillLayer_High;
+
+	/** Call this to refresh which layers are visible based on current inventory */
+	void UpdateVisualFill();
 
 	UFUNCTION()
 	void OnCatchBoxOverlap(
