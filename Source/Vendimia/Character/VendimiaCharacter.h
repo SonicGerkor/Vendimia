@@ -79,6 +79,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<UAnimMontage> SnipMontage;
 	
+	/** Montage played when getting a tool */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|Animations")
+	TObjectPtr<UAnimMontage> ToolPickupMontage;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting")
 	TSubclassOf<AGrapePickup> GrapePickupClass;
 
@@ -123,4 +127,18 @@ protected:
 	/** Helper to safely read the currently equipped tool's stats */
 	UFUNCTION(BlueprintPure, Category = "Harvesting|Tools")
 	FHarvestToolInfo GetCurrentToolInfo() const;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Harvesting|State")
+	bool bIsInteracting = false;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> PendingInteractable;
+	
+	/** Called by an Anim Notify exactly when the hand reaches the tool */
+	UFUNCTION(BlueprintCallable, Category = "Harvesting|Interaction")
+	void TriggerPendingInteraction();
+
+	/** Called by an Anim Notify at the end of the montage to restore movement */
+	UFUNCTION(BlueprintCallable, Category = "Harvesting|Interaction")
+	void EndInteraction();
 };

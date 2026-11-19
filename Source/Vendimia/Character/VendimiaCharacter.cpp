@@ -12,6 +12,7 @@
 #include "Vendimia/Game/HarvestGameMode.h"
 #include "Vendimia/Game/VendimiaSaveGame.h"
 #include "Vendimia/GrapeActors/GrapePickup.h"
+#include "Vendimia/GrapeActors/HarvestTool.h"
 #include "Vendimia/GrapeActors/TrailerScale.h"
 #include "Vendimia/Interfaces/HarvestableInterface.h"
 #include "Vendimia/Interfaces/InteractableInterface.h"
@@ -90,6 +91,11 @@ void AVendimiaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 void AVendimiaCharacter::Move(const FInputActionValue& Value)
 {
+	if (bIsInteracting)
+	{
+		return;
+	}
+	
 	// Block movement while the snip montage is playing
 	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance())
 	{
@@ -164,6 +170,11 @@ void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance, float TraceRadius)
 {
+	if (bIsInteracting)
+	{
+		return;
+	}
+	
 	if (!GetMesh())
 	{
 		return;
@@ -297,7 +308,32 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 
 	if (ClosestInteractable)
 	{
-		IInteractableInterface::Execute_Interact(ClosestInteractable, this);
+		// If the interactable is a Tool, play the montage and delay the physical equip
+		if (ClosestInteractable->IsA(AHarvestTool::StaticClass()) && ToolPickupMontage)
+		{
+			if (bIsInteracting) return; // Prevent spamming E
+
+			bIsInteracting = true;
+			PendingInteractable = ClosestInteractable;
+
+			// Stop all momentum instantly
+			GetCharacterMovement()->StopMovementImmediately();
+
+			// Calculate yaw rotation to face the tool
+			FVector Direction = ClosestInteractable->GetActorLocation() - GetActorLocation();
+			Direction.Z = 0.0f; // Keep the character perfectly upright
+			if (!Direction.IsNearlyZero())
+			{
+				SetActorRotation(Direction.Rotation());
+			}
+
+			PlayAnimMontage(ToolPickupMontage);
+		}
+		else
+		{
+			// Immediate interaction for Crates and Trailer Scale
+			IInteractableInterface::Execute_Interact(ClosestInteractable, this);
+		}
 	}
 }
 
@@ -356,4 +392,18 @@ FHarvestToolInfo AVendimiaCharacter::GetCurrentToolInfo() const
 		return ToolTiers[CurrentToolTierIndex]->ToolInfo;
 	}
 	return FHarvestToolInfo();
+}
+
+void AVendimiaCharacter::TriggerPendingInteraction()
+{
+	if (PendingInteractable && PendingInteractable->GetClass()->ImplementsInterface(UInteractableInterface::StaticClass()))
+	{
+		IInteractableInterface::Execute_Interact(PendingInteractable, this);
+	}
+	PendingInteractable = nullptr;
+}
+
+void AVendimiaCharacter::EndInteraction()
+{
+	bIsInteracting = false;
 }
