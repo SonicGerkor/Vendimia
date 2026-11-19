@@ -7,7 +7,10 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "DrawDebugHelpers.h"
+#include "Kismet/GameplayStatics.h"
 #include "Vendimia/Components/PlayerSkillsComponent.h"
+#include "Vendimia/Game/HarvestGameMode.h"
+#include "Vendimia/Game/VendimiaSaveGame.h"
 #include "Vendimia/GrapeActors/GrapePickup.h"
 #include "Vendimia/GrapeActors/TrailerScale.h"
 #include "Vendimia/Interfaces/HarvestableInterface.h"
@@ -22,6 +25,10 @@ AVendimiaCharacter::AVendimiaCharacter()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 	PlayerSkills = CreateDefaultSubobject<UPlayerSkillsComponent>(TEXT("PlayerSkills"));
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
+	
+	EquippedToolMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("EquippedToolMesh"));
+	EquippedToolMesh->SetupAttachment(GetMesh(), ToolSocketName);
+	EquippedToolMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AVendimiaCharacter::BeginPlay()
@@ -39,6 +46,8 @@ void AVendimiaCharacter::BeginPlay()
 			}
 		}
 	}
+	
+	ApplyToolTier(CurrentToolTierIndex);
 }
 
 void AVendimiaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -139,7 +148,7 @@ void AVendimiaCharacter::OnCrouchTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 {
-	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance())
+	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance() && CurrentToolTierIndex > 0)
 	{
 		if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(SnipMontage))
 		{
@@ -205,6 +214,9 @@ void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance, float TraceRadius
 				{
 					PlayerSkills->AddSkillUse(PlayerSkills->SnipSkillTag, 1);
 				}
+
+				const FHarvestToolInfo CurrentTool = GetCurrentToolInfo();
+				const float FinalRotPercentage = FMath::Clamp(OutRotPercentage + CurrentTool.CutRotModifier, 0.0f, 100.0f);
 				
 				FActorSpawnParameters SpawnParams;
 				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -221,7 +233,7 @@ void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance, float TraceRadius
 
 				if (SpawnedGrape)
 				{
-					SpawnedGrape->InitGrape(OutRotPercentage, OutVariety);
+					SpawnedGrape->InitGrape(FinalRotPercentage, OutVariety, CurrentTool.CutStyle);
 					SpawnedGrape->AttachToComponent(
 						GetMesh(), 
 						FAttachmentTransformRules::SnapToTargetIncludingScale, 
@@ -296,14 +308,52 @@ void AVendimiaCharacter::CheckSnipComboProgress()
 		return;
 	}
 
-	const int32 MaxSnips = PlayerSkills ? PlayerSkills->GetMaxSnipsPerAction() : 1;
+	const int32 SkillMaxSnips = PlayerSkills ? PlayerSkills->GetMaxSnipsPerAction() : 1;
+	const int32 ToolBonusSnips = GetCurrentToolInfo().BonusSnipsPerAction;
+	const int32 TotalMaxSnips = SkillMaxSnips + ToolBonusSnips;
 
-	// If the player has reached their current skill limit (1 or 2 snips), blend out smoothly now
-	if (CurrentActionSnipCount >= MaxSnips && CurrentActionSnipCount < 3)
+	// If the player has reached their current skill + tool limit, blend out smoothly now
+	if (CurrentActionSnipCount >= TotalMaxSnips && CurrentActionSnipCount < 3)
 	{
 		if (UAnimInstance* AnimInst = GetMesh()->GetAnimInstance())
 		{
 			AnimInst->Montage_Stop(EarlySnipBlendOutTime, SnipMontage);
 		}
 	}
+}
+
+void AVendimiaCharacter::ApplyToolTier(const int32 TierIndex)
+{
+	if (ToolTiers.Num() == 0 || !EquippedToolMesh)
+	{
+		return;
+	}
+
+	CurrentToolTierIndex = TierIndex;
+
+	if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
+	{
+		const FHarvestToolInfo& Info = ToolTiers[CurrentToolTierIndex]->ToolInfo;
+		EquippedToolMesh->SetStaticMesh(Info.ToolMesh);
+		EquippedToolMesh->SetVisibility(true);
+		EquippedToolMesh->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			ToolSocketName
+		);
+	}
+	else
+	{
+		EquippedToolMesh->SetStaticMesh(nullptr);
+		EquippedToolMesh->SetVisibility(false);
+	}
+}
+
+FHarvestToolInfo AVendimiaCharacter::GetCurrentToolInfo() const
+{
+	if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
+	{
+		return ToolTiers[CurrentToolTierIndex]->ToolInfo;
+	}
+	return FHarvestToolInfo();
 }

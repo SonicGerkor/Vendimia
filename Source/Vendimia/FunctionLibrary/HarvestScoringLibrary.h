@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Vendimia/ToolingTypes.h"
 #include "HarvestScoringLibrary.generated.h"
 
 class UVineyardData;
@@ -14,6 +15,16 @@ class VENDIMIA_API UHarvestScoringLibrary : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 	
 public:
+	
+	UFUNCTION(BlueprintPure, Category = "Harvest Scoring")
+	static float GetCutStyleMultiplier(const EVineCutStyle CutStyle);
+	
 	UFUNCTION(BlueprintPure, Category = "Harvest|Scoring")
-	static void CalculateCratePayout(const TArray<float>& ClusterQualities, const UVineyardData* VineyardData, float& OutAverageQuality, float& OutFinalPayout);
+	static void CalculateCratePayout(
+		const TArray<float>& ClusterQualities,
+		const TArray<EVineCutStyle>& ClusterCutStyles,
+		const UVineyardData* VineyardData,
+		float& OutAverageQuality,
+		float& OutFinalPayout
+	);
 };

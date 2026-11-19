@@ -120,7 +120,7 @@ void ACrate::OnCatchBoxOverlap(
 {
 	if (AGrapePickup* Grape = Cast<AGrapePickup>(OtherActor))
 	{
-		const bool bAdded = CrateInventory->AddGrapeByRot(Grape->RotPercentage);
+		const bool bAdded = CrateInventory->AddGrape(Grape->RotPercentage, Grape->CutStyle);
 		if (bAdded)
 		{
 			Grape->Destroy();

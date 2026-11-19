@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Vendimia/ToolingTypes.h"
 #include "CrateInventoryComponent.generated.h"
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -20,10 +21,16 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Crate Inventory")
 	TArray<float> ClusterQualities;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
+	TArray<EVineCutStyle> ClusterCutStyles;
+	
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	bool AddGrape(float Quality, EVineCutStyle CutStyle);
 
 	// Converts RotPercentage (0-100) into Quality (100 - Rot) and adds to array if space permits
 	UFUNCTION(BlueprintCallable, Category = "Crate Inventory")
-	bool AddGrapeByRot(float RotPercentage);
+	bool AddGrapeByRot(const float RotPercentage);
 
 	// Direct quality addition if your blueprint already subtracted rot from 100
 	UFUNCTION(BlueprintCallable, Category = "Crate Inventory")

@@ -103,10 +103,10 @@ void ATrailerScale::EvaluateCrate(ACrate* CrateToEvaluate, float& OutAvgQuality,
 
 	UHarvestScoringLibrary::CalculateCratePayout(
 		CrateToEvaluate->CrateInventory->ClusterQualities,
+		CrateToEvaluate->CrateInventory->ClusterCutStyles,
 		GameState->CurrentVineyardData,
 		OutAvgQuality,
-		OutPayout
-	);
+		OutPayout);
 
 	bOutSuccess = true;
 }

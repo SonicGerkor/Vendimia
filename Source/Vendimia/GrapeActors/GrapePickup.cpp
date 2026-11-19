@@ -21,10 +21,11 @@ AGrapePickup::AGrapePickup()
 	MeshComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
 }
 
-void AGrapePickup::InitGrape(float InRotPercentage, UGrapeVarietyData* InVariety)
+void AGrapePickup::InitGrape(const float InRotPercentage, UGrapeVarietyData* InVariety, const EVineCutStyle InCutStyle)
 {
-	RotPercentage = InRotPercentage;
+	RotPercentage = FMath::Clamp(InRotPercentage, 0.0f, 100.0f);
 	GrapeVariety = InVariety;
+	CutStyle = InCutStyle;
 
 	if (GrapeVariety)
 	{

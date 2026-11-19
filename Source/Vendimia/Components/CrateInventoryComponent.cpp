@@ -7,7 +7,18 @@ UCrateInventoryComponent::UCrateInventoryComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-bool UCrateInventoryComponent::AddGrapeByRot(float RotPercentage)
+bool UCrateInventoryComponent::AddGrape(float Quality, EVineCutStyle CutStyle)
+{
+	if (ClusterQualities.Num() < MaxCapacity)
+	{
+		ClusterQualities.Add(Quality);
+		ClusterCutStyles.Add(CutStyle);
+		return true;
+	}
+	return false;
+}
+
+bool UCrateInventoryComponent::AddGrapeByRot(const float RotPercentage)
 {
 	const float CalculatedQuality = FMath::Clamp(100.0f - RotPercentage, 0.0f, 100.0f);
 	return AddGrapeQuality(CalculatedQuality);

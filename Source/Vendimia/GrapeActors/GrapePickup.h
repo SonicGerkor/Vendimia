@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Vendimia/ToolingTypes.h"
 #include "GrapePickup.generated.h"
 
 class UStaticMeshComponent;
@@ -15,6 +16,7 @@ class VENDIMIA_API AGrapePickup : public AActor
 	GENERATED_BODY()
 
 public:
+	
 	AGrapePickup();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -26,6 +28,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvest Data")
 	TObjectPtr<UGrapeVarietyData> GrapeVariety;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvest Data")
+	EVineCutStyle CutStyle = EVineCutStyle::Mid;
+	
 	UFUNCTION(BlueprintCallable, Category = "Harvest Data")
-	void InitGrape(float InRotPercentage, UGrapeVarietyData* InVariety);
+	void InitGrape(const float InRotPercentage, UGrapeVarietyData* InVariety, const EVineCutStyle InCutStyle = EVineCutStyle::Mid);
 };

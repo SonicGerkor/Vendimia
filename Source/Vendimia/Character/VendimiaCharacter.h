@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "Vendimia/ToolingTypes.h"
 #include "VendimiaCharacter.generated.h"
 
 class UPlayerSkillsComponent;
@@ -36,6 +37,17 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FName HandSocketName;
+	
+	/** Currently equipped tool index (0 to 5) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvesting|Tools")
+	int32 CurrentToolTierIndex = -1;
+	
+	/** Array of Data Assets defining the tools (Indices 0-5) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|Tools")
+	TArray<TObjectPtr<UHarvestToolData>> ToolTiers;
+	
+	UFUNCTION(BlueprintCallable, Category = "Harvesting|Tools")
+	void ApplyToolTier(const int32 TierIndex);
 
 protected:
 	
@@ -99,4 +111,16 @@ protected:
 	/** Toggle visual debug spheres for traces in editor */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvesting|Debug")
 	bool bDrawDebugTraces = true;
+	
+	/** Mesh component for the currently equipped knife or scissors */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Harvesting|Tools")
+	TObjectPtr<UStaticMeshComponent> EquippedToolMesh;
+
+	/** Socket on the hand where the knife/scissors attaches */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|Tools")
+	FName ToolSocketName = TEXT("Socket_Tool");
+	
+	/** Helper to safely read the currently equipped tool's stats */
+	UFUNCTION(BlueprintPure, Category = "Harvesting|Tools")
+	FHarvestToolInfo GetCurrentToolInfo() const;
 };
