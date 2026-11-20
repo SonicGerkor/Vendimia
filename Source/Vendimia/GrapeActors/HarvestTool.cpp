@@ -4,6 +4,7 @@
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Vendimia/Character/VendimiaCharacter.h"
+#include "Vendimia/Components/HarvestingComponent.h"
 
 AHarvestTool::AHarvestTool()
 {
@@ -30,17 +31,20 @@ void AHarvestTool::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (const AVendimiaCharacter* PlayerChar = Cast<AVendimiaCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0)))
+	if (const ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
 	{
-		SyncVisualMeshFromTier(PlayerChar);
+		if (UHarvestingComponent* HarvestComp = PlayerChar->FindComponentByClass<UHarvestingComponent>())
+		{
+			SyncVisualMeshFromTier(HarvestComp);
+		}
 	}
 }
 
-void AHarvestTool::SyncVisualMeshFromTier(const AVendimiaCharacter* Character)
+void AHarvestTool::SyncVisualMeshFromTier(UHarvestingComponent* HarvestComp)
 {
-	if (Character && Character->ToolTiers.IsValidIndex(ToolTierIndex) && ToolMesh)
+	if (HarvestComp && HarvestComp->ToolTiers.IsValidIndex(ToolTierIndex) && ToolMesh)
 	{
-		if (const UHarvestToolData* ToolData = Character->ToolTiers[ToolTierIndex])
+		if (const UHarvestToolData* ToolData = HarvestComp->ToolTiers[ToolTierIndex])
 		{
 			if (UStaticMesh* TierMesh = ToolData->ToolInfo.ToolMesh)
 			{
@@ -52,13 +56,16 @@ void AHarvestTool::SyncVisualMeshFromTier(const AVendimiaCharacter* Character)
 
 void AHarvestTool::Interact_Implementation(APawn* InteractingPawn)
 {
-	AVendimiaCharacter* Character = Cast<AVendimiaCharacter>(InteractingPawn);
-	if (!Character) return;
+	if (!InteractingPawn) return;
 
-	const int32 PreviousToolIndex = Character->CurrentToolTierIndex;
+	// Use FindComponentByClass so any Pawn with a Harvesting Component can pick up tools!
+	UHarvestingComponent* HarvestComp = InteractingPawn->FindComponentByClass<UHarvestingComponent>();
+	if (!HarvestComp) return;
+
+	const int32 PreviousToolIndex = HarvestComp->CurrentToolTierIndex;
 	const int32 NewToolIndex = ToolTierIndex;
 
-	Character->ApplyToolTier(NewToolIndex);
+	HarvestComp->ApplyToolTier(NewToolIndex);
 
 	if (bDestroyOnPickup || PreviousToolIndex < 0)
 	{
@@ -69,7 +76,7 @@ void AHarvestTool::Interact_Implementation(APawn* InteractingPawn)
 	{
 		// Swap this world pickup to represent the tool the player just unequipped
 		ToolTierIndex = PreviousToolIndex;
-		SyncVisualMeshFromTier(Character);
+		SyncVisualMeshFromTier(HarvestComp);
 	}
 }
 

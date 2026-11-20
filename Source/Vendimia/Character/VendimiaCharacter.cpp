@@ -8,11 +8,10 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
+#include "Vendimia/Components/HarvestingComponent.h"
 #include "Vendimia/Components/PlayerSkillsComponent.h"
 #include "Vendimia/Controller/VendimiaPlayerController.h"
 #include "Vendimia/GrapeActors/GrapePickup.h"
-#include "Vendimia/GrapeActors/HarvestTool.h"
-#include "Vendimia/GrapeActors/TrailerScale.h"
 #include "Vendimia/Interfaces/HarvestableInterface.h"
 #include "Vendimia/Interfaces/InteractableInterface.h"
 
@@ -26,8 +25,10 @@ AVendimiaCharacter::AVendimiaCharacter()
 	PlayerSkills = CreateDefaultSubobject<UPlayerSkillsComponent>(TEXT("PlayerSkills"));
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
 	
+	HarvestingComp = CreateDefaultSubobject<UHarvestingComponent>(TEXT("HarvestingComp"));
+	
 	EquippedToolMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("EquippedToolMesh"));
-	EquippedToolMesh->SetupAttachment(GetMesh(), ToolSocketName);
+	EquippedToolMesh->SetupAttachment(GetMesh(), HarvestingComp->ToolSocketName);
 	EquippedToolMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
@@ -47,7 +48,7 @@ void AVendimiaCharacter::BeginPlay()
 		}
 	}
 	
-	ApplyToolTier(CurrentToolTierIndex);
+	HarvestingComp->InitializeHarvesting(GetMesh(), EquippedToolMesh);
 }
 
 void AVendimiaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -159,16 +160,12 @@ void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 		return;
 	}
 
-	// CHANGED: CurrentToolTierIndex >= 0 (so Index 0 / Lv.1 Knife works!)
-	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance() && CurrentToolTierIndex >= 0)
+	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance() && HarvestingComp->CurrentToolTierIndex >= 0)
 	{
 		if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(SnipMontage))
 		{
-			CurrentActionSnipCount = 0;
-			
-			// Stop any current walking/running momentum immediately
+			HarvestingComp->ResetActionSnipCount();
 			GetCharacterMovement()->StopMovementImmediately();
-
 			PlayAnimMontage(SnipMontage);
 		}
 	}
@@ -176,107 +173,8 @@ void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance, float TraceRadius)
 {
-	if (bIsInteracting)
-	{
-		return;
-	}
-	
-	if (!GetMesh())
-	{
-		return;
-	}
-
-	CurrentActionSnipCount++;
-	
-	const FVector StartLocation = GetMesh()->GetSocketLocation(HandSocketName);
-	const FVector EndLocation = StartLocation + (GetActorForwardVector() * FMath::Max(TraceDistance, 1.0f));
-
-	FHitResult HitResult;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-
-	const FCollisionShape SphereShape = FCollisionShape::MakeSphere(TraceRadius);
-
-	const bool bHit = GetWorld()->SweepSingleByChannel(
-		HitResult,
-		StartLocation,
-		EndLocation,
-		FQuat::Identity,
-		ECC_Visibility,
-		SphereShape,
-		QueryParams
-	);
-
-	if (bDrawDebugTraces)
-	{
-		const FColor DebugColor = bHit ? FColor::Green : FColor::Red;
-		DrawDebugSphere(GetWorld(), bHit ? HitResult.Location : StartLocation, TraceRadius, 12, DebugColor, false, 2.0f);
-	}
-
-	if (bHit && HitResult.GetActor())
-	{
-		AActor* HitActor = HitResult.GetActor();
-
-		if (HitActor->GetClass()->ImplementsInterface(UHarvestableInterface::StaticClass()))
-		{
-			float OutRotPercentage = 0.0f;
-			UGrapeVarietyData* OutVariety = nullptr;
-
-			const bool bSuccess = IHarvestableInterface::Execute_OnSnipped(HitActor, OutRotPercentage, OutVariety);
-
-			if (bSuccess)
-			{
-				// Progress the player's snip skill on every successful harvest
-				if (PlayerSkills)
-				{
-					PlayerSkills->AddSkillUse(PlayerSkills->SnipSkillTag, 1);
-				}
-
-				if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
-				{
-					int32 TotalMaxSnips = 1;
-					const FHarvestToolInfo& CurrentTool = ToolTiers[CurrentToolTierIndex]->ToolInfo;
-					const int32 SkillMaxSnips = PlayerSkills ? PlayerSkills->GetMaxSnipsPerAction() : 1;
-					TotalMaxSnips = SkillMaxSnips + CurrentTool.BonusSnipsPerAction;
-
-					if (CurrentTool.SnipSound)
-					{
-						UGameplayStatics::PlaySoundAtLocation(this, CurrentTool.SnipSound, GetActorLocation());
-					}
-					
-					if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(GetController()))
-					{
-						PC->UpdateSnipUI(CurrentActionSnipCount, TotalMaxSnips, true);
-					}
-				
-					const float FinalRotPercentage = FMath::Clamp(OutRotPercentage + CurrentTool.CutRotModifier, 0.0f, 100.0f);
-				
-					FActorSpawnParameters SpawnParams;
-					SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-					// Spawn at RightHandSocket (or change to Socket_GrapeHand if you use a separate socket for holding)
-					const FTransform HandTransform = GetMesh()->GetSocketTransform(HandSocketName);
-					UClass* ClassToSpawn = GrapePickupClass ? GrapePickupClass.Get() : AGrapePickup::StaticClass();
-
-					AGrapePickup* SpawnedGrape = GetWorld()->SpawnActor<AGrapePickup>(
-						ClassToSpawn, 
-						HandTransform, 
-						SpawnParams
-					);
-
-					if (SpawnedGrape)
-					{
-						SpawnedGrape->InitGrape(FinalRotPercentage, OutVariety, CurrentTool.CutStyle);
-						SpawnedGrape->AttachToComponent(
-							GetMesh(), 
-							FAttachmentTransformRules::SnapToTargetIncludingScale, 
-							HandSocketName
-						);
-					}
-				}
-			}
-		}
-	}
+	if (bIsInteracting || !HarvestingComp) return;
+	HarvestingComp->ExecuteSnipTrace(TraceDistance, TraceRadius);
 }
 
 void AVendimiaCharacter::OnInteractTriggered(const FInputActionValue& Value)
@@ -380,73 +278,16 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 
 void AVendimiaCharacter::CheckSnipComboProgress()
 {
-	if (!GetMesh() || !SnipMontage)
-	{
-		return;
-	}
+	if (!GetMesh() || !SnipMontage || !HarvestingComp) return;
 
-	const int32 SkillMaxSnips = PlayerSkills ? PlayerSkills->GetMaxSnipsPerAction() : 1;
-	const int32 ToolBonusSnips = GetCurrentToolInfo().BonusSnipsPerAction;
-	const int32 TotalMaxSnips = SkillMaxSnips + ToolBonusSnips;
-
-	// If the player has reached their current skill + tool limit, blend out smoothly now
-	if (CurrentActionSnipCount >= TotalMaxSnips && CurrentActionSnipCount < 3)
+	// Ask the component for its current state instead of doing the math here
+	if (HarvestingComp->CurrentActionSnipCount >= HarvestingComp->GetTotalMaxSnips() && HarvestingComp->CurrentActionSnipCount < 3)
 	{
 		if (UAnimInstance* AnimInst = GetMesh()->GetAnimInstance())
 		{
 			AnimInst->Montage_Stop(EarlySnipBlendOutTime, SnipMontage);
 		}
 	}
-}
-
-void AVendimiaCharacter::ApplyToolTier(const int32 TierIndex)
-{
-	if (ToolTiers.Num() == 0 || !EquippedToolMesh)
-	{
-		return;
-	}
-
-	CurrentToolTierIndex = TierIndex;
-
-	int32 BonusSnips = 0; // Default to 0 for empty hands
-
-	if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
-	{
-		// We have a valid tool, apply its mesh and grab its bonus snips
-		const FHarvestToolInfo& Info = ToolTiers[CurrentToolTierIndex]->ToolInfo;
-		EquippedToolMesh->SetStaticMesh(Info.ToolMesh);
-		EquippedToolMesh->SetVisibility(true);
-		EquippedToolMesh->AttachToComponent(
-			GetMesh(),
-			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			ToolSocketName
-		);
-
-		BonusSnips = Info.BonusSnipsPerAction;
-	}
-	else
-	{
-		// Empty hands (-1), hide the mesh
-		EquippedToolMesh->SetStaticMesh(nullptr);
-		EquippedToolMesh->SetVisibility(false);
-	}
-
-	// Safely calculate the max snips for the HUD
-	const int32 SkillMaxSnips = PlayerSkills ? PlayerSkills->GetMaxSnipsPerAction() : 1;
-	const int32 TotalMaxSnips = SkillMaxSnips + BonusSnips;
-	if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(GetController()))
-	{
-		PC->UpdateSnipUI(0, TotalMaxSnips, false);
-	}
-}
-
-FHarvestToolInfo AVendimiaCharacter::GetCurrentToolInfo() const
-{
-	if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
-	{
-		return ToolTiers[CurrentToolTierIndex]->ToolInfo;
-	}
-	return FHarvestToolInfo();
 }
 
 void AVendimiaCharacter::TriggerPendingInteraction()

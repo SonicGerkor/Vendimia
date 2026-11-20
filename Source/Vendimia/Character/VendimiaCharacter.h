@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
-#include "Vendimia/ToolingTypes.h"
 #include "VendimiaCharacter.generated.h"
 
 class UPlayerSkillsComponent;
@@ -14,6 +13,7 @@ class UInputAction;
 class AGrapePickup;
 class UGrapeVarietyData;
 class UAnimMontage;
+class UHarvestingComponent;
 
 UCLASS()
 class VENDIMIA_API AVendimiaCharacter : public ACharacter
@@ -34,22 +34,11 @@ public:
 	// Performs the general interaction trace
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void ExecuteInteractOverlap();
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FName HandSocketName;
-	
-	/** Currently equipped tool index (0 to 5) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvesting|Tools")
-	int32 CurrentToolTierIndex = -1;
-	
-	/** Array of Data Assets defining the tools (Indices 0-5) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|Tools")
-	TArray<TObjectPtr<UHarvestToolData>> ToolTiers;
-	
-	UFUNCTION(BlueprintCallable, Category = "Harvesting|Tools")
-	void ApplyToolTier(const int32 TierIndex);
 
 protected:
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UHarvestingComponent> HarvestingComp;
 	
 	/** Default Input Mapping Context */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
@@ -82,16 +71,9 @@ protected:
 	/** Montage played when getting a tool */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|Animations")
 	TObjectPtr<UAnimMontage> ToolPickupMontage;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting")
-	TSubclassOf<AGrapePickup> GrapePickupClass;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPlayerSkillsComponent> PlayerSkills;
-	
-	/** Tracks how many snips have fired during the current montage playback */
-	UPROPERTY(BlueprintReadOnly, Category = "Harvesting")
-	int32 CurrentActionSnipCount = 0;
 
 	/** Blend-out time when stopping the montage early after 1 or 2 snips */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
@@ -112,21 +94,9 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	void OnInteractTriggered(const FInputActionValue& Value);
 	
-	/** Toggle visual debug spheres for traces in editor */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvesting|Debug")
-	bool bDrawDebugTraces = true;
-	
 	/** Mesh component for the currently equipped knife or scissors */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Harvesting|Tools")
 	TObjectPtr<UStaticMeshComponent> EquippedToolMesh;
-
-	/** Socket on the hand where the knife/scissors attaches */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|Tools")
-	FName ToolSocketName = TEXT("Socket_Tool");
-	
-	/** Helper to safely read the currently equipped tool's stats */
-	UFUNCTION(BlueprintPure, Category = "Harvesting|Tools")
-	FHarvestToolInfo GetCurrentToolInfo() const;
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Harvesting|State")
 	bool bIsInteracting = false;

@@ -9,6 +9,7 @@
 
 class UStaticMeshComponent;
 class UBoxComponent;
+class UHarvestingComponent;
 
 UCLASS()
 class VENDIMIA_API AHarvestTool : public AActor, public IInteractableInterface
@@ -34,13 +35,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tool")
 	bool bDestroyOnPickup = false;
 	
-	virtual UAnimMontage* GetPickupMontage_Implementation() const override;
-
 	virtual void Interact_Implementation(APawn* InteractingPawn) override;
+	virtual UAnimMontage* GetPickupMontage_Implementation() const override;
 
 	/** Updates ToolMesh to match the player's ToolTiers entry for ToolTierIndex */
 	UFUNCTION(BlueprintCallable, Category = "Tool")
-	void SyncVisualMeshFromTier(const class AVendimiaCharacter* Character);
+	void SyncVisualMeshFromTier(UHarvestingComponent* HarvestComp);
 
 protected:
 	
