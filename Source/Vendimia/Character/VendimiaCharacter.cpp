@@ -296,7 +296,7 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 		{
 			// Check if the crate is hovering inside the scale's drop zone BEFORE dropping it
 			TArray<AActor*> OverlappingScales;
-			Attached->GetOverlappingActors(OverlappingScales, ATrailerScale::StaticClass());
+			GetOverlappingActors(OverlappingScales, ATrailerScale::StaticClass());
 			
 			if (OverlappingScales.Num() > 0)
 			{

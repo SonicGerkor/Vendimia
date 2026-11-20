@@ -6,6 +6,8 @@
 #include "GameFramework/PlayerController.h"
 #include "VendimiaPlayerController.generated.h"
 
+class UUserWidget;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUIMessageSignature, const FText&, WarningMessage);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnSnipUpdatedSignature, int32, CurrentSnips, int32, MaxSnips, bool, bPlayHighlight);
 
@@ -15,6 +17,14 @@ class VENDIMIA_API AVendimiaPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
+	
+	/** The class of the HUD widget to create */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|UI")
+	TSubclassOf<UUserWidget> GameplayHUDClass;
+
+	/** The actual instantiated HUD widget */
+	UPROPERTY(BlueprintReadOnly, Category = "Harvesting|UI")
+	TObjectPtr<UUserWidget> GameplayHUDWidget;
 
 	// --- DELEGATES ---
 	

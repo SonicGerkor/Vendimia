@@ -2,9 +2,20 @@
 
 #include "VendimiaPlayerController.h"
 
+#include "Blueprint/UserWidget.h"
+
 void AVendimiaPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	if (IsLocalPlayerController() && GameplayHUDClass)
+	{
+		GameplayHUDWidget = CreateWidget<UUserWidget>(this, GameplayHUDClass);
+		if (GameplayHUDWidget)
+		{
+			GameplayHUDWidget->AddToViewport();
+		}
+	}
 }
 
 void AVendimiaPlayerController::ShowUIMessage(const FText& Message)
