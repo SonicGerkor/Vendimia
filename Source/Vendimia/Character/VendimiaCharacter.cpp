@@ -286,7 +286,9 @@ void AVendimiaCharacter::OnInteractTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::ExecuteInteractOverlap()
 {
-	// 1. If we are already carrying an interactable (the crate)
+	// ==========================================
+	// 1. DROP PHASE (Holding a Crate)
+	// ==========================================
 	TArray<AActor*> AttachedActors;
 	GetAttachedActors(AttachedActors);
 
@@ -294,41 +296,38 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 	{
 		if (Attached && Attached->GetClass()->ImplementsInterface(UInteractableInterface::StaticClass()))
 		{
-			// Check if the crate is hovering inside the scale's drop zone BEFORE dropping it
-			TArray<AActor*> OverlappingScales;
-			GetOverlappingActors(OverlappingScales, ATrailerScale::StaticClass());
+			TArray<AActor*> OverlappingActors;
+			this->GetOverlappingActors(OverlappingActors);
 			
-			if (OverlappingScales.Num() > 0)
+			for (AActor* Overlap : OverlappingActors)
 			{
-				if (ATrailerScale* Scale = Cast<ATrailerScale>(OverlappingScales[0]))
+				if (Overlap != this && Overlap->GetClass()->ImplementsInterface(UInteractableInterface::StaticClass()))
 				{
-					// Ask the scale if it will accept this specific crate
-					if (!Scale->CanAcceptCrate(Attached))
+					// Ask the Interface: Is this object a receiver for crates?
+					if (IInteractableInterface::Execute_IsDropZone(Overlap))
 					{
-						// Scale rejects it: Show message and STOP (Character keeps holding the crate!)
-						if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(GetController()))
+						// Ask the Interface: Will you accept THIS specific crate?
+						if (IInteractableInterface::Execute_CanInteract(Overlap, this, Attached))
 						{
-							PC->ShowUIMessage(FText::FromString("You need more grapes!"));
+							IInteractableInterface::Execute_Interact(Attached, this); // Drop it
+							IInteractableInterface::Execute_Interact(Overlap, this);  // Score it
 						}
+						// If CanInteract returned false, the Scale already showed the UI warning.
+						// We return immediately so we don't accidentally drop the crate on the ground!
 						return; 
-					}
-					else
-					{
-						// Scale accepts it: Drop the crate, then trigger the scale's scoring
-						IInteractableInterface::Execute_Interact(Attached, this);
-						IInteractableInterface::Execute_Interact(Scale, this);
-						return;
 					}
 				}
 			}
 
-			// If we are NOT at a scale, just drop the crate normally on the ground
+			// If we aren't standing in any valid Drop Zone, drop the crate on the ground normally
 			IInteractableInterface::Execute_Interact(Attached, this);
 			return;
 		}
 	}
 	
-	// 2. Otherwise, find the closest overlapping interactable to pick up or trigger
+	// ==========================================
+	// 2. PICKUP / TRIGGER PHASE (Empty Hands)
+	// ==========================================
 	TArray<AActor*> OverlappingActors;
 	GetOverlappingActors(OverlappingActors);
 
@@ -350,30 +349,30 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 
 	if (ClosestInteractable)
 	{
-		// If the interactable is a Tool, play the montage and delay the physical equip
-		if (ClosestInteractable->IsA(AHarvestTool::StaticClass()) && ToolPickupMontage)
+		// Ask the Interface: Does this object require a pickup animation?
+		UAnimMontage* MontageToPlay = IInteractableInterface::Execute_GetPickupMontage(ClosestInteractable);
+
+		if (MontageToPlay)
 		{
 			if (bIsInteracting) return; // Prevent spamming E
 
 			bIsInteracting = true;
 			PendingInteractable = ClosestInteractable;
 
-			// Stop all momentum instantly
 			GetCharacterMovement()->StopMovementImmediately();
 
-			// Calculate yaw rotation to face the tool
 			FVector Direction = ClosestInteractable->GetActorLocation() - GetActorLocation();
-			Direction.Z = 0.0f; // Keep the character perfectly upright
+			Direction.Z = 0.0f; // Keep character upright
 			if (!Direction.IsNearlyZero())
 			{
 				SetActorRotation(Direction.Rotation());
 			}
 
-			PlayAnimMontage(ToolPickupMontage);
+			PlayAnimMontage(MontageToPlay);
 		}
 		else
 		{
-			// Immediate interaction for empty Crates and the empty Trailer Scale
+			// Object returned nullptr for montage -> Immediate interaction (Crates, Workbenches)
 			IInteractableInterface::Execute_Interact(ClosestInteractable, this);
 		}
 	}

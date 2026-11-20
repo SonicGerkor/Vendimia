@@ -72,3 +72,8 @@ void AHarvestTool::Interact_Implementation(APawn* InteractingPawn)
 		SyncVisualMeshFromTier(Character);
 	}
 }
+
+UAnimMontage* AHarvestTool::GetPickupMontage_Implementation() const
+{
+	return PickupMontage;
+}

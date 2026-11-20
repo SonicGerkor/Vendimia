@@ -33,6 +33,8 @@ public:
 	/** If true, destroys this world pickup after equipping; if false, swaps with the player's previous tool */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tool")
 	bool bDestroyOnPickup = false;
+	
+	virtual UAnimMontage* GetPickupMontage_Implementation() const override;
 
 	virtual void Interact_Implementation(APawn* InteractingPawn) override;
 
@@ -43,4 +45,7 @@ public:
 protected:
 	
 	virtual void BeginPlay() override;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* PickupMontage;
 };

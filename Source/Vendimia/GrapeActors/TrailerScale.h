@@ -33,6 +33,8 @@ public:
 
 	// Interface Implementation Override
 	virtual void Interact_Implementation(APawn* InteractingPawn) override;
+	virtual bool IsDropZone_Implementation() const override;
+	virtual bool CanInteract_Implementation(APawn* InteractingPawn, AActor* Payload) const override;
 
 	UFUNCTION(BlueprintCallable, Category = "Scale")
 	void EvaluateCrate(ACrate* CrateToEvaluate, float& OutAvgQuality, float& OutPayout, bool& bOutSuccess);

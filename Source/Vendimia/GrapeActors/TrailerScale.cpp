@@ -83,6 +83,33 @@ void ATrailerScale::Interact_Implementation(APawn* InteractingPawn)
 	}
 }
 
+// Identify this actor as a receiver for payloads
+bool ATrailerScale::IsDropZone_Implementation() const
+{
+	return true;
+}
+
+// Evaluate the crate before accepting it
+bool ATrailerScale::CanInteract_Implementation(APawn* InteractingPawn, AActor* Payload) const
+{
+	if (!Payload) return true; // Allows standard empty-handed interaction
+
+	// Example logic: Replace with your actual grape check!
+	bool bHasEnoughGrapes = false; 
+
+	if (!bHasEnoughGrapes)
+	{
+		// The scale handles its own rejection warning!
+		if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(InteractingPawn->GetController()))
+		{
+			PC->ShowUIMessage(FText::FromString("Not enough grapes!"));
+		}
+		return false; 
+	}
+	
+	return true;
+}
+
 void ATrailerScale::EvaluateCrate(ACrate* CrateToEvaluate, float& OutAvgQuality, float& OutPayout, bool& bOutSuccess)
 {
 	OutAvgQuality = 0.0f;
