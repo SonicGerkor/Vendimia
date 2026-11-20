@@ -27,6 +27,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scale Rules")
 	TSubclassOf<ACrate> CrateClass;
+	
+	UFUNCTION(BlueprintCallable, Category = "Harvesting|Scale")
+	bool CanAcceptCrate(AActor* CrateActor) const;
 
 	// Interface Implementation Override
 	virtual void Interact_Implementation(APawn* InteractingPawn) override;

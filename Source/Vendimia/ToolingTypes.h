@@ -49,6 +49,10 @@ struct FHarvestToolInfo
 	/** Mechanical perk: bonus snips allowed per montage (e.g., 0 for Knives, +1 or +2 for Scissors) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tool")
 	int32 BonusSnipsPerAction = 0;
+	
+	/** Played when a snip is successfully performed */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tool|Audio")
+	TObjectPtr<USoundBase> SnipSound = nullptr;
 };
 
 UCLASS(BlueprintType)

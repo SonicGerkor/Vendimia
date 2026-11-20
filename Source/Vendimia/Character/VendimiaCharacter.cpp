@@ -9,8 +9,7 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Vendimia/Components/PlayerSkillsComponent.h"
-#include "Vendimia/Game/HarvestGameMode.h"
-#include "Vendimia/Game/VendimiaSaveGame.h"
+#include "Vendimia/Controller/VendimiaPlayerController.h"
 #include "Vendimia/GrapeActors/GrapePickup.h"
 #include "Vendimia/GrapeActors/HarvestTool.h"
 #include "Vendimia/GrapeActors/TrailerScale.h"
@@ -154,7 +153,14 @@ void AVendimiaCharacter::OnCrouchTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 {
-	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance() && CurrentToolTierIndex > 0)
+	// Prevent swinging while locked in a workbench or crate animation
+	if (bIsInteracting)
+	{
+		return;
+	}
+
+	// CHANGED: CurrentToolTierIndex >= 0 (so Index 0 / Lv.1 Knife works!)
+	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance() && CurrentToolTierIndex >= 0)
 	{
 		if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(SnipMontage))
 		{
@@ -226,30 +232,47 @@ void AVendimiaCharacter::ExecuteSnipTrace(float TraceDistance, float TraceRadius
 					PlayerSkills->AddSkillUse(PlayerSkills->SnipSkillTag, 1);
 				}
 
-				const FHarvestToolInfo CurrentTool = GetCurrentToolInfo();
-				const float FinalRotPercentage = FMath::Clamp(OutRotPercentage + CurrentTool.CutRotModifier, 0.0f, 100.0f);
-				
-				FActorSpawnParameters SpawnParams;
-				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-				// Spawn at RightHandSocket (or change to Socket_GrapeHand if you use a separate socket for holding)
-				const FTransform HandTransform = GetMesh()->GetSocketTransform(HandSocketName);
-				UClass* ClassToSpawn = GrapePickupClass ? GrapePickupClass.Get() : AGrapePickup::StaticClass();
-
-				AGrapePickup* SpawnedGrape = GetWorld()->SpawnActor<AGrapePickup>(
-					ClassToSpawn, 
-					HandTransform, 
-					SpawnParams
-				);
-
-				if (SpawnedGrape)
+				if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
 				{
-					SpawnedGrape->InitGrape(FinalRotPercentage, OutVariety, CurrentTool.CutStyle);
-					SpawnedGrape->AttachToComponent(
-						GetMesh(), 
-						FAttachmentTransformRules::SnapToTargetIncludingScale, 
-						HandSocketName
+					int32 TotalMaxSnips = 1;
+					const FHarvestToolInfo& CurrentTool = ToolTiers[CurrentToolTierIndex]->ToolInfo;
+					const int32 SkillMaxSnips = PlayerSkills ? PlayerSkills->GetMaxSnipsPerAction() : 1;
+					TotalMaxSnips = SkillMaxSnips + CurrentTool.BonusSnipsPerAction;
+
+					if (CurrentTool.SnipSound)
+					{
+						UGameplayStatics::PlaySoundAtLocation(this, CurrentTool.SnipSound, GetActorLocation());
+					}
+					
+					if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(GetController()))
+					{
+						PC->UpdateSnipUI(CurrentActionSnipCount, TotalMaxSnips, true);
+					}
+				
+					const float FinalRotPercentage = FMath::Clamp(OutRotPercentage + CurrentTool.CutRotModifier, 0.0f, 100.0f);
+				
+					FActorSpawnParameters SpawnParams;
+					SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+					// Spawn at RightHandSocket (or change to Socket_GrapeHand if you use a separate socket for holding)
+					const FTransform HandTransform = GetMesh()->GetSocketTransform(HandSocketName);
+					UClass* ClassToSpawn = GrapePickupClass ? GrapePickupClass.Get() : AGrapePickup::StaticClass();
+
+					AGrapePickup* SpawnedGrape = GetWorld()->SpawnActor<AGrapePickup>(
+						ClassToSpawn, 
+						HandTransform, 
+						SpawnParams
 					);
+
+					if (SpawnedGrape)
+					{
+						SpawnedGrape->InitGrape(FinalRotPercentage, OutVariety, CurrentTool.CutStyle);
+						SpawnedGrape->AttachToComponent(
+							GetMesh(), 
+							FAttachmentTransformRules::SnapToTargetIncludingScale, 
+							HandSocketName
+						);
+					}
 				}
 			}
 		}
@@ -263,7 +286,7 @@ void AVendimiaCharacter::OnInteractTriggered(const FInputActionValue& Value)
 
 void AVendimiaCharacter::ExecuteInteractOverlap()
 {
-	// 1. If we are already carrying an interactable (the crate), interact with it to put it down
+	// 1. If we are already carrying an interactable (the crate)
 	TArray<AActor*> AttachedActors;
 	GetAttachedActors(AttachedActors);
 
@@ -271,17 +294,36 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 	{
 		if (Attached && Attached->GetClass()->ImplementsInterface(UInteractableInterface::StaticClass()))
 		{
-			// Drop the crate
-			IInteractableInterface::Execute_Interact(Attached, this);
-
-			// If the crate was dropped inside the scale's DropPoint, trigger the scale immediately
+			// Check if the crate is hovering inside the scale's drop zone BEFORE dropping it
 			TArray<AActor*> OverlappingScales;
 			Attached->GetOverlappingActors(OverlappingScales, ATrailerScale::StaticClass());
+			
 			if (OverlappingScales.Num() > 0)
 			{
-				IInteractableInterface::Execute_Interact(OverlappingScales[0], this);
+				if (ATrailerScale* Scale = Cast<ATrailerScale>(OverlappingScales[0]))
+				{
+					// Ask the scale if it will accept this specific crate
+					if (!Scale->CanAcceptCrate(Attached))
+					{
+						// Scale rejects it: Show message and STOP (Character keeps holding the crate!)
+						if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(GetController()))
+						{
+							PC->ShowUIMessage(FText::FromString("You need more grapes!"));
+						}
+						return; 
+					}
+					else
+					{
+						// Scale accepts it: Drop the crate, then trigger the scale's scoring
+						IInteractableInterface::Execute_Interact(Attached, this);
+						IInteractableInterface::Execute_Interact(Scale, this);
+						return;
+					}
+				}
 			}
 
+			// If we are NOT at a scale, just drop the crate normally on the ground
+			IInteractableInterface::Execute_Interact(Attached, this);
 			return;
 		}
 	}
@@ -331,7 +373,7 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 		}
 		else
 		{
-			// Immediate interaction for Crates and Trailer Scale
+			// Immediate interaction for empty Crates and the empty Trailer Scale
 			IInteractableInterface::Execute_Interact(ClosestInteractable, this);
 		}
 	}
@@ -367,8 +409,11 @@ void AVendimiaCharacter::ApplyToolTier(const int32 TierIndex)
 
 	CurrentToolTierIndex = TierIndex;
 
+	int32 BonusSnips = 0; // Default to 0 for empty hands
+
 	if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
 	{
+		// We have a valid tool, apply its mesh and grab its bonus snips
 		const FHarvestToolInfo& Info = ToolTiers[CurrentToolTierIndex]->ToolInfo;
 		EquippedToolMesh->SetStaticMesh(Info.ToolMesh);
 		EquippedToolMesh->SetVisibility(true);
@@ -377,11 +422,22 @@ void AVendimiaCharacter::ApplyToolTier(const int32 TierIndex)
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 			ToolSocketName
 		);
+
+		BonusSnips = Info.BonusSnipsPerAction;
 	}
 	else
 	{
+		// Empty hands (-1), hide the mesh
 		EquippedToolMesh->SetStaticMesh(nullptr);
 		EquippedToolMesh->SetVisibility(false);
+	}
+
+	// Safely calculate the max snips for the HUD
+	const int32 SkillMaxSnips = PlayerSkills ? PlayerSkills->GetMaxSnipsPerAction() : 1;
+	const int32 TotalMaxSnips = SkillMaxSnips + BonusSnips;
+	if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(GetController()))
+	{
+		PC->UpdateSnipUI(0, TotalMaxSnips, false);
 	}
 }
 

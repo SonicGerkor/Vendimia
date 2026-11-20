@@ -6,6 +6,7 @@
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Vendimia/Components/CrateInventoryComponent.h"
+#include "Vendimia/Controller/VendimiaPlayerController.h"
 #include "Vendimia/FunctionLibrary/HarvestScoringLibrary.h"
 #include "Vendimia/Game/HarvestGameMode.h"
 #include "Vendimia/Game/HarvestGameState.h"
@@ -44,6 +45,16 @@ void ATrailerScale::Interact_Implementation(APawn* InteractingPawn)
 	float AvgQuality = 0.0f;
 	float Payout = 0.0f;
 	bool bSuccess = false;
+	
+	if (!TargetCrate->CrateInventory->IsCrateFull())
+	{
+		if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(InteractingPawn->GetController()))
+		{
+			PC->ShowUIMessage(FText::FromString("You need more grapes!"));
+		}
+		
+		return;
+	}
 
 	// Evaluate the crate using our scoring rules
 	EvaluateCrate(TargetCrate, AvgQuality, Payout, bSuccess);
@@ -77,12 +88,6 @@ void ATrailerScale::EvaluateCrate(ACrate* CrateToEvaluate, float& OutAvgQuality,
 	OutAvgQuality = 0.0f;
 	OutPayout = 0.0f;
 	bOutSuccess = false;
-	
-	if (!CrateToEvaluate->CrateInventory->IsCrateFull())
-	{
-		// DISPLAY A UI MESSAGE THAT MORE VINES ARE NEEDED
-		return;
-	}
 
 	if (!CrateToEvaluate || !CrateToEvaluate->CrateInventory)
 	{
@@ -124,4 +129,16 @@ void ATrailerScale::FinishShiftAndReset(ACrate* EvaluatedCrate, FTransform Spawn
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 		GetWorld()->SpawnActor<ACrate>(CrateClass, SpawnTransform, SpawnParams);
 	}
+}
+
+bool ATrailerScale::CanAcceptCrate(AActor* CrateActor) const
+{
+	if (!CrateActor) return false;
+	
+	if (const ACrate* Crate = Cast<ACrate>(CrateActor); Crate->CrateInventory->IsCrateFull())
+	{
+		return Crate->CrateInventory->IsCrateFull();
+	}
+
+	return false;
 }

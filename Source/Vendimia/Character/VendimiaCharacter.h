@@ -25,7 +25,7 @@ public:
 	AVendimiaCharacter();
 	
 	virtual void BeginPlay() override;
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	
 	// Performs the harvest snip trace
 	UFUNCTION(BlueprintCallable, Category = "Harvesting")
