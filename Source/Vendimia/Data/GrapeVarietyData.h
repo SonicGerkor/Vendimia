@@ -20,6 +20,18 @@ class VENDIMIA_API UGrapeVarietyData : public UPrimaryDataAsset
 	GENERATED_BODY()
 	
 public:
+
+	/** The display name of the grape (e.g., "Albarino", "Malbec") */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation")
+	FText VarietyName;
+
+	/** A lore or flavor text description for the journal */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation", meta = (MultiLine = true))
+	FText VarietyDescription;
+
+	/** A 2D icon representing this grape cluster in the UI */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation")
+	TObjectPtr<UTexture2D> VarietyIcon;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
 	float ClusterSize = 1.0f;

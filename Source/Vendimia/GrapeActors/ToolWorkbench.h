@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "ToolWorkbench.generated.h"
 
+class UEquipmentData;
 class UStaticMeshComponent;
 class AHarvestTool;
 
@@ -28,8 +29,16 @@ public:
 	/** Socket names on the WorkbenchMesh where tools should be placed */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Workbench")
 	TArray<FName> ToolSockets;
+	
+	/** The specific equipment data assets to spawn on this workbench (e.g., DA_Knife, DA_Scissors) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Workbench")
+	TArray<TObjectPtr<UEquipmentData>> ToolsToSpawn;
 
 protected:
 	
 	virtual void BeginPlay() override;
+	
+private:
+	
+	void SpawnTools();
 };

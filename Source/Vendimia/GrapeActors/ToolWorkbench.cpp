@@ -19,48 +19,35 @@ void AToolWorkbench::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!ToolPickupClass)
-	{
-		return;
-	}
+	SpawnTools();	
+}
 
-	// 1. Get the player character
+void AToolWorkbench::SpawnTools()
+{
+	if (!ToolPickupClass) return;
+
 	ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0);
-	if (!PlayerChar)
-	{
-		return;
-	}
-
-	// 2. Grab the new Harvesting Component from the player
-	UHarvestingComponent* HarvestComp = PlayerChar->FindComponentByClass<UHarvestingComponent>();
-	if (!HarvestComp)
-	{
-		return;
-	}
+	if (!PlayerChar) return;
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = this;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	// 3. Spawn a physical tool reading from the COMPONENT'S ToolTiers
-	const int32 ToolCount = HarvestComp->ToolTiers.Num();
-	const int32 SocketCount = ToolSockets.Num();
-	const int32 SpawnsToPerform = FMath::Min(ToolCount, SocketCount);
+	// Spawn a physical tool for every Data Asset configured on this specific workbench
+	const int32 SpawnsToPerform = FMath::Min(ToolsToSpawn.Num(), ToolSockets.Num());
 
 	for (int32 i = 0; i < SpawnsToPerform; ++i)
 	{
+		if (!ToolsToSpawn[i]) continue;
+
 		const FTransform SpawnTransform = WorkbenchMesh->GetSocketTransform(ToolSockets[i]);
 		
 		if (AHarvestTool* SpawnedTool = GetWorld()->SpawnActor<AHarvestTool>(ToolPickupClass, SpawnTransform, SpawnParams))
 		{
-			SpawnedTool->ToolTierIndex = i;
-			// Ensure it swaps with empty hands/previous tool rather than destroying itself
+			// Give the tool its identity pointer instead of an integer index
+			SpawnedTool->ToolData = ToolsToSpawn[i];
 			SpawnedTool->bDestroyOnPickup = false; 
-			
-			// 4. Pass the Component to the tool so it sets its mesh correctly
-			SpawnedTool->SyncVisualMeshFromTier(HarvestComp);
-			
-			// Attach it firmly to the workbench socket so it doesn't get kicked around
+			SpawnedTool->SyncVisualMeshFromTier(PlayerChar);
 			SpawnedTool->AttachToComponent(WorkbenchMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, ToolSockets[i]);
 		}
 	}

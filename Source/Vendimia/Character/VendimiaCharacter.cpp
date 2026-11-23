@@ -8,6 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
+#include "Vendimia/Components/EquipmentUpgradeComponent.h"
 #include "Vendimia/Components/HarvestingComponent.h"
 #include "Vendimia/Components/PlayerSkillsComponent.h"
 #include "Vendimia/Controller/VendimiaPlayerController.h"
@@ -26,6 +27,7 @@ AVendimiaCharacter::AVendimiaCharacter()
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
 	
 	HarvestingComp = CreateDefaultSubobject<UHarvestingComponent>(TEXT("HarvestingComp"));
+	EquipmentUpgradeComp = CreateDefaultSubobject<UEquipmentUpgradeComponent>(TEXT("EquipmentUpgradeComp"));
 	
 	EquippedToolMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("EquippedToolMesh"));
 	EquippedToolMesh->SetupAttachment(GetMesh(), HarvestingComp->ToolSocketName);
@@ -85,6 +87,18 @@ void AVendimiaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		if (CrouchAction)
 		{
 			EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &AVendimiaCharacter::OnCrouchTriggered);
+		}
+		
+		// Bind Journal Action
+		if (JournalAction)
+		{
+			EnhancedInputComponent->BindAction(JournalAction, ETriggerEvent::Started, this, &AVendimiaCharacter::OnJournalTriggered);
+		}
+		
+		// Bind Equipment Action
+		if (EquipmentAction)
+		{
+			EnhancedInputComponent->BindAction(EquipmentAction, ETriggerEvent::Started, this, &AVendimiaCharacter::OnEquipmentTriggered);
 		}
 	}
 }
@@ -160,7 +174,8 @@ void AVendimiaCharacter::OnSnipTriggered(const FInputActionValue& Value)
 		return;
 	}
 
-	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance() && HarvestingComp->CurrentToolTierIndex >= 0)
+	// CHANGED: Now we check if HarvestingComp exists and if EquippedTool is not null!
+	if (SnipMontage && GetMesh() && GetMesh()->GetAnimInstance() && HarvestingComp && HarvestingComp->EquippedTool)
 	{
 		if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(SnipMontage))
 		{
@@ -273,6 +288,22 @@ void AVendimiaCharacter::ExecuteInteractOverlap()
 			// Object returned nullptr for montage -> Immediate interaction (Crates, Workbenches)
 			IInteractableInterface::Execute_Interact(ClosestInteractable, this);
 		}
+	}
+}
+
+void AVendimiaCharacter::OnJournalTriggered(const FInputActionValue& Value)
+{
+	if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(GetController()))
+	{
+		PC->ToggleJournal(PC->CurrentVineyard, PC->CurrentGrape);
+	}
+}
+
+void AVendimiaCharacter::OnEquipmentTriggered(const FInputActionValue& Value)
+{
+	if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(GetController()))
+	{
+		PC->ToggleInventory();
 	}
 }
 

@@ -29,6 +29,9 @@ void UVendimiaAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	FVector Velocity = VendimiaCharacter->GetVelocity();
 	Velocity.Z = 0.0f;
 	GroundSpeed = Velocity.Size();
+	
+	// Calculate direction for BSStrafe
+	Direction = CalculateDirection(Velocity, VendimiaCharacter->GetActorRotation());
 
 	// Check in-air status
 	bIsInAir = VendimiaCharacter->GetCharacterMovement()->IsFalling();

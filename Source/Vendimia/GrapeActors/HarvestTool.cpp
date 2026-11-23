@@ -3,8 +3,10 @@
 #include "HarvestTool.h"
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "Vendimia/Character/VendimiaCharacter.h"
+#include "GameFramework/Character.h"
 #include "Vendimia/Components/HarvestingComponent.h"
+#include "Vendimia/Components/EquipmentUpgradeComponent.h"
+#include "Vendimia/Data/EquipmentData.h" // Include the new Data Asset
 
 AHarvestTool::AHarvestTool()
 {
@@ -31,25 +33,27 @@ void AHarvestTool::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (const ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
+	if (ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
 	{
-		if (UHarvestingComponent* HarvestComp = PlayerChar->FindComponentByClass<UHarvestingComponent>())
-		{
-			SyncVisualMeshFromTier(HarvestComp);
-		}
+		SyncVisualMeshFromTier(PlayerChar);
 	}
 }
 
-void AHarvestTool::SyncVisualMeshFromTier(UHarvestingComponent* HarvestComp)
+void AHarvestTool::SyncVisualMeshFromTier(APawn* PlayerPawn)
 {
-	if (HarvestComp && HarvestComp->ToolTiers.IsValidIndex(ToolTierIndex) && ToolMesh)
+	if (!PlayerPawn || !ToolData || !ToolMesh) return;
+
+	// Check the player's Upgrade Component to see what tier this tool is at
+	if (UEquipmentUpgradeComponent* UpgradeComp = PlayerPawn->FindComponentByClass<UEquipmentUpgradeComponent>())
 	{
-		if (const UHarvestToolData* ToolData = HarvestComp->ToolTiers[ToolTierIndex])
+		int32 CurrentTier = UpgradeComp->GetCurrentTier(ToolData->EquipmentTag);
+		
+		// Map the Tier (1-7) to the Mesh Array Index (0-6)
+		int32 MeshIndex = FMath::Clamp(CurrentTier - 1, 0, ToolData->TierMeshes.Num() - 1);
+
+		if (ToolData->TierMeshes.IsValidIndex(MeshIndex))
 		{
-			if (UStaticMesh* TierMesh = ToolData->ToolInfo.ToolMesh)
-			{
-				ToolMesh->SetStaticMesh(TierMesh);
-			}
+			ToolMesh->SetStaticMesh(ToolData->TierMeshes[MeshIndex]);
 		}
 	}
 }
@@ -58,25 +62,23 @@ void AHarvestTool::Interact_Implementation(APawn* InteractingPawn)
 {
 	if (!InteractingPawn) return;
 
-	// Use FindComponentByClass so any Pawn with a Harvesting Component can pick up tools!
 	UHarvestingComponent* HarvestComp = InteractingPawn->FindComponentByClass<UHarvestingComponent>();
 	if (!HarvestComp) return;
 
-	const int32 PreviousToolIndex = HarvestComp->CurrentToolTierIndex;
-	const int32 NewToolIndex = ToolTierIndex;
+	// Swap the pointers!
+	UEquipmentData* PreviousTool = HarvestComp->EquippedTool;
+	UEquipmentData* NewTool = ToolData;
 
-	HarvestComp->ApplyToolTier(NewToolIndex);
+	HarvestComp->EquipTool(NewTool);
 
-	if (bDestroyOnPickup || PreviousToolIndex < 0)
+	if (bDestroyOnPickup || PreviousTool == nullptr)
 	{
-		// Destroy this pickup if instructed, OR if the player traded us their empty hands
 		Destroy();
 	}
 	else
 	{
-		// Swap this world pickup to represent the tool the player just unequipped
-		ToolTierIndex = PreviousToolIndex;
-		SyncVisualMeshFromTier(HarvestComp);
+		ToolData = PreviousTool;
+		SyncVisualMeshFromTier(InteractingPawn); // Refresh our visual mesh on the table
 	}
 }
 

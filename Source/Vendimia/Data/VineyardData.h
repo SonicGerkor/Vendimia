@@ -16,6 +16,19 @@ class VENDIMIA_API UVineyardData : public UPrimaryDataAsset
 	GENERATED_BODY()
 	
 public:
+	
+	/** The display name of the vineyard (e.g., "Chapadmalal Plot A") */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation")
+	FText VineyardName;
+
+	/** Lore, history, or general information about this location */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation", meta = (MultiLine = true))
+	FText VineyardDescription;
+
+	/** A background image or photograph of the vineyard for the Journal UI */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Presentation")
+	TObjectPtr<UTexture2D> VineyardImage;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scoring & Economy")
 	float BasePayPerCluster = 15.0f;
 

@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "Vendimia/ToolingTypes.h"
 #include "HarvestingComponent.generated.h"
 
 class AGrapePickup;
 class UPlayerSkillsComponent;
+class UEquipmentData;
 
 UCLASS( ClassGroup=(Harvesting), meta=(BlueprintSpawnableComponent) )
 class VENDIMIA_API UHarvestingComponent : public UActorComponent
@@ -25,8 +25,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Harvesting|Setup")
 	void InitializeHarvesting(USkeletalMeshComponent* CharacterMesh, UStaticMeshComponent* ToolMesh);
 
+	/** Equips a new tool and updates the visual mesh based on the player's current upgrade tier */
 	UFUNCTION(BlueprintCallable, Category = "Harvesting|Tools")
-	void ApplyToolTier(int32 TierIndex);
+	void EquipTool(UEquipmentData* NewTool);
+
+	/** Refreshes the 3D mesh (Useful if the player upgrades the tool while holding it) */
+	UFUNCTION(BlueprintCallable, Category = "Harvesting|Tools")
+	void RefreshEquippedToolVisuals();
 
 	UFUNCTION(BlueprintCallable, Category = "Harvesting|Action")
 	void ExecuteSnipTrace(float TraceDistance = 200.0f, float TraceRadius = 10.0f);
@@ -34,23 +39,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Harvesting|Action")
 	void ResetActionSnipCount();
 
-	UFUNCTION(BlueprintPure, Category = "Harvesting|Tools")
-	FHarvestToolInfo GetCurrentToolInfo() const;
-
 	UFUNCTION(BlueprintPure, Category = "Harvesting|Stats")
 	int32 GetTotalMaxSnips() const;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvesting|Tools")
-	int32 CurrentToolTierIndex = -1;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|Tools")
-	TArray<TObjectPtr<UHarvestToolData>> ToolTiers;
+	/** The currently equipped handheld tool */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Harvesting|Tools")
+	TObjectPtr<UEquipmentData> EquippedTool;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|Tools")
 	FName ToolSocketName = TEXT("Socket_Tool");
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting")
-	FName HandSocketName = TEXT("RightHandSocket");
+	FName HandSocketName = TEXT("Socket_Hand");
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting")
 	TSubclassOf<AGrapePickup> GrapePickupClass;
@@ -62,7 +62,7 @@ public:
 	int32 CurrentActionSnipCount = 0;
 
 private:
-
+	
 	UPROPERTY()
 	TObjectPtr<USkeletalMeshComponent> OwnerMesh;
 

@@ -5,7 +5,9 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Vendimia/Components/PlayerSkillsComponent.h"
+#include "Vendimia/Components/EquipmentUpgradeComponent.h"
 #include "Vendimia/Controller/VendimiaPlayerController.h"
+#include "Vendimia/Data/EquipmentData.h"
 #include "Vendimia/GrapeActors/GrapePickup.h"
 #include "Vendimia/Interfaces/HarvestableInterface.h"
 
@@ -18,7 +20,7 @@ void UHarvestingComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if (AActor* Owner = GetOwner())
+	if (const AActor* Owner = GetOwner())
 	{
 		CachedPlayerSkills = Owner->FindComponentByClass<UPlayerSkillsComponent>();
 	}
@@ -29,31 +31,15 @@ void UHarvestingComponent::InitializeHarvesting(USkeletalMeshComponent* Characte
 	OwnerMesh = CharacterMesh;
 	EquippedToolMesh = ToolMesh;
 	
-	ApplyToolTier(CurrentToolTierIndex);
+	RefreshEquippedToolVisuals();
 }
 
-void UHarvestingComponent::ApplyToolTier(int32 TierIndex)
+void UHarvestingComponent::EquipTool(UEquipmentData* NewTool)
 {
-	if (ToolTiers.Num() == 0 || !EquippedToolMesh || !OwnerMesh) return;
+	EquippedTool = NewTool;
+	RefreshEquippedToolVisuals();
 
-	CurrentToolTierIndex = TierIndex;
-	int32 BonusSnips = 0;
-
-	if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
-	{
-		const FHarvestToolInfo& Info = ToolTiers[CurrentToolTierIndex]->ToolInfo;
-		EquippedToolMesh->SetStaticMesh(Info.ToolMesh);
-		EquippedToolMesh->SetVisibility(true);
-		EquippedToolMesh->AttachToComponent(OwnerMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, ToolSocketName);
-		BonusSnips = Info.BonusSnipsPerAction;
-	}
-	else
-	{
-		EquippedToolMesh->SetStaticMesh(nullptr);
-		EquippedToolMesh->SetVisibility(false);
-	}
-
-	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
 	{
 		if (AVendimiaPlayerController* PC = Cast<AVendimiaPlayerController>(OwnerPawn->GetController()))
 		{
@@ -62,9 +48,38 @@ void UHarvestingComponent::ApplyToolTier(int32 TierIndex)
 	}
 }
 
+void UHarvestingComponent::RefreshEquippedToolVisuals()
+{
+	if (!EquippedToolMesh || !OwnerMesh) return;
+
+	if (!EquippedTool || !EquippedTool->bIsHandheldTool || EquippedTool->TierMeshes.Num() == 0)
+	{
+		EquippedToolMesh->SetStaticMesh(nullptr);
+		EquippedToolMesh->SetVisibility(false);
+		return;
+	}
+
+	// Determine the current tier from the Upgrade Component
+	int32 CurrentTier = 1;
+	if (const AActor* Owner = GetOwner())
+	{
+		if (const UEquipmentUpgradeComponent* UpgradeComp = Owner->FindComponentByClass<UEquipmentUpgradeComponent>())
+		{
+			CurrentTier = UpgradeComp->GetCurrentTier(EquippedTool->EquipmentTag);
+		}
+	}
+
+	// Clamp index to safely read from the mesh array (Tier 1 = Index 0)
+	const int32 MeshIndex = FMath::Clamp(CurrentTier - 1, 0, EquippedTool->TierMeshes.Num() - 1);
+	
+	EquippedToolMesh->SetStaticMesh(EquippedTool->TierMeshes[MeshIndex]);
+	EquippedToolMesh->SetVisibility(true);
+	EquippedToolMesh->AttachToComponent(OwnerMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, ToolSocketName);
+}
+
 void UHarvestingComponent::ExecuteSnipTrace(float TraceDistance, float TraceRadius)
 {
-	if (!OwnerMesh || !GetOwner()) return;
+	if (!OwnerMesh || !GetOwner() || !EquippedTool) return;
 
 	CurrentActionSnipCount++;
 	
@@ -96,24 +111,19 @@ void UHarvestingComponent::ExecuteSnipTrace(float TraceDistance, float TraceRadi
 				CachedPlayerSkills->AddSkillUse(CachedPlayerSkills->SnipSkillTag, 1);
 			}
 
-			if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
+			if (EquippedTool->ActionSound)
 			{
-				const FHarvestToolInfo& CurrentTool = ToolTiers[CurrentToolTierIndex]->ToolInfo;
+				UGameplayStatics::PlaySoundAtLocation(this, EquippedTool->ActionSound, GetOwner()->GetActorLocation());
+			}
+		
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			UClass* ClassToSpawn = GrapePickupClass ? GrapePickupClass.Get() : AGrapePickup::StaticClass();
 
-				if (CurrentTool.SnipSound)
-				{
-					UGameplayStatics::PlaySoundAtLocation(this, CurrentTool.SnipSound, GetOwner()->GetActorLocation());
-				}
-			
-				FActorSpawnParameters SpawnParams;
-				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-				UClass* ClassToSpawn = GrapePickupClass ? GrapePickupClass.Get() : AGrapePickup::StaticClass();
-
-				if (AGrapePickup* SpawnedGrape = GetWorld()->SpawnActor<AGrapePickup>(ClassToSpawn, OwnerMesh->GetSocketTransform(HandSocketName), SpawnParams))
-				{
-					SpawnedGrape->InitGrape(FMath::Clamp(OutRotPercentage + CurrentTool.CutRotModifier, 0.0f, 100.0f), OutVariety, CurrentTool.CutStyle);
-					SpawnedGrape->AttachToComponent(OwnerMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, HandSocketName);
-				}
+			if (AGrapePickup* SpawnedGrape = GetWorld()->SpawnActor<AGrapePickup>(ClassToSpawn, OwnerMesh->GetSocketTransform(HandSocketName), SpawnParams))
+			{
+				SpawnedGrape->InitGrape(FMath::Clamp(OutRotPercentage + EquippedTool->CutRotModifier, 0.0f, 100.0f), OutVariety, EquippedTool->CutStyle);
+				SpawnedGrape->AttachToComponent(OwnerMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, HandSocketName);
 			}
 		}
 	}
@@ -129,17 +139,22 @@ void UHarvestingComponent::ExecuteSnipTrace(float TraceDistance, float TraceRadi
 
 int32 UHarvestingComponent::GetTotalMaxSnips() const
 {
-	const int32 SkillMaxSnips = CachedPlayerSkills ? CachedPlayerSkills->GetMaxSnipsPerAction() : 1;
-	return SkillMaxSnips + GetCurrentToolInfo().BonusSnipsPerAction;
-}
+	int32 TotalSnips = CachedPlayerSkills ? CachedPlayerSkills->GetMaxSnipsPerAction() : 1;
 
-FHarvestToolInfo UHarvestingComponent::GetCurrentToolInfo() const
-{
-	if (ToolTiers.IsValidIndex(CurrentToolTierIndex) && ToolTiers[CurrentToolTierIndex])
+	// Add dynamic bonus snips evaluated from the tool's curve at its current tier
+	if (EquippedTool && EquippedTool->PrimaryStatCurve)
 	{
-		return ToolTiers[CurrentToolTierIndex]->ToolInfo;
+		if (const AActor* Owner = GetOwner())
+		{
+			if (const UEquipmentUpgradeComponent* UpgradeComp = Owner->FindComponentByClass<UEquipmentUpgradeComponent>())
+			{
+				int32 CurrentTier = UpgradeComp->GetCurrentTier(EquippedTool->EquipmentTag);
+				TotalSnips += FMath::RoundToInt(EquippedTool->PrimaryStatCurve->GetFloatValue(CurrentTier));
+			}
+		}
 	}
-	return FHarvestToolInfo();
+
+	return TotalSnips;
 }
 
 void UHarvestingComponent::ResetActionSnipCount()

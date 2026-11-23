@@ -6,7 +6,11 @@
 #include "GameFramework/PlayerController.h"
 #include "VendimiaPlayerController.generated.h"
 
+class UInventoryWidget;
+class UGrapeVarietyData;
+class UVineyardData;
 class UUserWidget;
+class UJournalWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUIMessageSignature, const FText&, WarningMessage);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnSnipUpdatedSignature, int32, CurrentSnips, int32, MaxSnips, bool, bPlayHighlight);
@@ -36,6 +40,38 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Harvesting|UI")
 	FOnSnipUpdatedSignature OnSnipUpdatedDelegate;
 	
+	/** The vineyard data for the current map */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvesting|Level Data")
+	TObjectPtr<UVineyardData> CurrentVineyard;
+
+	/** The grape data for the current map */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Harvesting|Level Data")
+	TObjectPtr<UGrapeVarietyData> CurrentGrape;
+
+	/** The class of the Journal widget */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|UI")
+	TSubclassOf<UUserWidget> JournalWidgetClass;
+
+	/** The actual instantiated Journal widget */
+	UPROPERTY(BlueprintReadOnly, Category = "Harvesting|UI")
+	TObjectPtr<UJournalWidget> JournalWidget;
+	
+	/** Opens or closes the journal */
+	UFUNCTION(BlueprintCallable, Category = "Harvesting|UI")
+	void ToggleJournal(const UVineyardData* InCurrentVineyard, const UGrapeVarietyData* InCurrentGrape);
+	
+	/** The class of the Journal widget */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Harvesting|UI")
+	TSubclassOf<UUserWidget> InventoryWidgetClass;
+	
+	/** The actual instantiated Journal widget */
+	UPROPERTY(BlueprintReadOnly, Category = "Harvesting|UI")
+	TObjectPtr<UInventoryWidget> InventoryWidget;
+	
+	/** Opens or closes the inventory */
+	UFUNCTION(BlueprintCallable, Category = "Harvesting|Inventory")
+	void ToggleInventory();
+	
 	// --- HELPER FUNCTIONS FOR OTHER CLASSES TO CALL ---
 
 	/** Called by interactables or the character to flash a message on screen */
@@ -49,5 +85,4 @@ public:
 protected:
 	
 	virtual void BeginPlay() override;
-
 };

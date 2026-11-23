@@ -31,4 +31,7 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool bPlayerCrouched = false;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	float Direction = 0.f;
 };

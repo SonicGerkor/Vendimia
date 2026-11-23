@@ -14,6 +14,7 @@ class AGrapePickup;
 class UGrapeVarietyData;
 class UAnimMontage;
 class UHarvestingComponent;
+class UEquipmentUpgradeComponent;
 
 UCLASS()
 class VENDIMIA_API AVendimiaCharacter : public ACharacter
@@ -40,6 +41,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UHarvestingComponent> HarvestingComp;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UEquipmentUpgradeComponent> EquipmentUpgradeComp;
+	
 	/** Default Input Mapping Context */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputMappingContext> DefaultMappingContext;
@@ -64,6 +68,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> CrouchAction;
 	
+	/** Journal Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> JournalAction;
+	
+	/** Journal Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> EquipmentAction;
+	
 	/** Montage played when snipping a vine */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<UAnimMontage> SnipMontage;
@@ -87,6 +99,12 @@ protected:
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void OnCrouchTriggered(const FInputActionValue& Value);
+	
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	void OnJournalTriggered(const FInputActionValue& Value);
+	
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	void OnEquipmentTriggered(const FInputActionValue& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	void OnSnipTriggered(const FInputActionValue& Value);

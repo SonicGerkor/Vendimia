@@ -2,7 +2,9 @@
 
 #include "HarvestGameMode.h"
 #include "VendimiaSaveGame.h"
+#include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
+#include "Vendimia/Components/EquipmentUpgradeComponent.h"
 #include "Vendimia/GrapeActors/Crate.h"
 
 void AHarvestGameMode::BeginPlay()
@@ -24,6 +26,15 @@ void AHarvestGameMode::InitSaveGame()
 		ActiveSave = Cast<UVendimiaSaveGame>(UGameplayStatics::CreateSaveGameObject(UVendimiaSaveGame::StaticClass()));
 		UGameplayStatics::SaveGameToSlot(ActiveSave, SaveSlotName, 0);
 	}
+
+	// --- NEW: Push loaded equipment tiers to the player's component ---
+	if (const ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
+	{
+		if (UEquipmentUpgradeComponent* UpgradeComp = PlayerChar->FindComponentByClass<UEquipmentUpgradeComponent>())
+		{
+			UpgradeComp->LoadFromSaveGame(ActiveSave->SavedEquipmentTiers);
+		}
+	}
 }
 
 void AHarvestGameMode::AddFundsAndSave(float AmountToAdd)
@@ -39,6 +50,15 @@ void AHarvestGameMode::SaveCurrentProfile()
 {
 	if (ActiveSave)
 	{
+		// --- NEW: Grab the latest equipment tiers from the player before saving ---
+		if (const ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
+		{
+			if (const UEquipmentUpgradeComponent* UpgradeComp = PlayerChar->FindComponentByClass<UEquipmentUpgradeComponent>())
+			{
+				ActiveSave->SavedEquipmentTiers = UpgradeComp->GetEquipmentTiersForSave();
+			}
+		}
+
 		UGameplayStatics::SaveGameToSlot(ActiveSave, SaveSlotName, 0);
 	}
 }

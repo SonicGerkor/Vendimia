@@ -10,6 +10,7 @@
 class UStaticMeshComponent;
 class UBoxComponent;
 class UHarvestingComponent;
+class UEquipmentData;
 
 UCLASS()
 class VENDIMIA_API AHarvestTool : public AActor, public IInteractableInterface
@@ -17,35 +18,33 @@ class VENDIMIA_API AHarvestTool : public AActor, public IInteractableInterface
 	GENERATED_BODY()
 
 public:
-
+	
 	AHarvestTool();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> ToolMesh;
 
-	/** Overlap volume extending past the mesh so the player's capsule detects it cleanly */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UBoxComponent> InteractBox;
 
-	/** Index matching BP_PlayerCharacter's ToolTiers array (0-2 = Knives, 3-5 = Scissors) */
+	/** The specific equipment this pickup represents (e.g., DA_Knife) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tool")
-	int32 ToolTierIndex = 0;
+	TObjectPtr<UEquipmentData> ToolData;
 
-	/** If true, destroys this world pickup after equipping; if false, swaps with the player's previous tool */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tool")
 	bool bDestroyOnPickup = false;
-	
+
 	virtual void Interact_Implementation(APawn* InteractingPawn) override;
 	virtual UAnimMontage* GetPickupMontage_Implementation() const override;
 
-	/** Updates ToolMesh to match the player's ToolTiers entry for ToolTierIndex */
+	/** Updates ToolMesh based on the player's current upgrade tier */
 	UFUNCTION(BlueprintCallable, Category = "Tool")
-	void SyncVisualMeshFromTier(UHarvestingComponent* HarvestComp);
+	void SyncVisualMeshFromTier(APawn* PlayerPawn);
 
 protected:
 	
 	virtual void BeginPlay() override;
-	
+
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* PickupMontage;
 };
