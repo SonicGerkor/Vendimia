@@ -7,6 +7,7 @@
 #include "Components/Button.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/Image.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
 #include "Vendimia/Components/EquipmentUpgradeComponent.h"
@@ -60,13 +61,26 @@ void UInventoryWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (Btn_Upgrade) Btn_Upgrade->OnClicked.AddDynamic(this, &UInventoryWidget::OnUpgradeClicked);
+	if (Btn_Upgrade) Btn_Upgrade->OnClicked.AddUniqueDynamic(this, &UInventoryWidget::OnUpgradeClicked);
 }
 
 void UInventoryWidget::SelectEquipment(UEquipmentData* InEquipment)
 {
 	SelectedEquipment = InEquipment;
 	RefreshDetailsPane();
+	
+	// Loop through all slots in the UI and turn on the border ONLY for the selected item
+	if (Box_EquipmentList)
+	{
+		for (UWidget* ChildWidget : Box_EquipmentList->GetAllChildren())
+		{
+			if (UEquipmentSlotWidget* EquipSlot = Cast<UEquipmentSlotWidget>(ChildWidget))
+			{
+				const bool bIsSelected = (EquipSlot->GetSlotData() == SelectedEquipment);
+				EquipSlot->SetSelected(bIsSelected);
+			}
+		}
+	}
 }
 
 void UInventoryWidget::RefreshDetailsPane()
@@ -83,6 +97,20 @@ void UInventoryWidget::RefreshDetailsPane()
 
 		if (Text_SelectedName) Text_SelectedName->SetText(SelectedEquipment->DisplayName);
 		if (Text_CurrentTier) Text_CurrentTier->SetText(FText::Format(FText::FromString("Tier {0} / {1}"), CurrentTier, SelectedEquipment->MaxTier));
+		if (Img_SelectedIcon)
+		{
+			if (SelectedEquipment->Icon)
+			{
+				// Apply the texture and ensure it is visible
+				Img_SelectedIcon->SetBrushFromTexture(SelectedEquipment->Icon);
+				Img_SelectedIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			}
+			else
+			{
+				// Hide the white square if the Data Asset has no icon
+				Img_SelectedIcon->SetVisibility(ESlateVisibility::Hidden);
+			}
+		}
 		
 		// If they have room to upgrade, calculate the NEXT stat value to show the % improvement
 		if (CurrentTier < SelectedEquipment->MaxTier && SelectedEquipment->PrimaryStatCurve)

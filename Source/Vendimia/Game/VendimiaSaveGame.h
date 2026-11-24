@@ -23,6 +23,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "SaveData")
 	TMap<FGameplayTag, int32> SavedEquipmentTiers;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "SaveData")
+	FString SaveProfileName = TEXT("Empty Slot");
+	
 	/** Current unlocked crate/bucket tier (0 = starter bucket, up to 4) */
 	UPROPERTY(BlueprintReadWrite, Category = "Upgrades")
 	int32 CrateTierIndex = 0;

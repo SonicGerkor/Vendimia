@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "HarvestGameMode.h"
+
+#include "VendimiaGameInstance.h"
 #include "VendimiaSaveGame.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
@@ -16,6 +18,15 @@ void AHarvestGameMode::BeginPlay()
 
 void AHarvestGameMode::InitSaveGame()
 {
+	if (const UVendimiaGameInstance* GameInst = Cast<UVendimiaGameInstance>(GetGameInstance()))
+	{
+		// Only override if the menu actually set a valid slot name
+		if (!GameInst->ActiveSaveSlot.IsEmpty())
+		{
+			SaveSlotName = GameInst->ActiveSaveSlot;
+		}
+	}
+	
 	if (UGameplayStatics::DoesSaveGameExist(SaveSlotName, 0))
 	{
 		ActiveSave = Cast<UVendimiaSaveGame>(UGameplayStatics::LoadGameFromSlot(SaveSlotName, 0));
@@ -24,10 +35,19 @@ void AHarvestGameMode::InitSaveGame()
 	if (!ActiveSave)
 	{
 		ActiveSave = Cast<UVendimiaSaveGame>(UGameplayStatics::CreateSaveGameObject(UVendimiaSaveGame::StaticClass()));
+
+		if (UVendimiaGameInstance* GameInst = Cast<UVendimiaGameInstance>(GetGameInstance()))
+		{
+			if (!GameInst->PendingNewGameName.IsEmpty())
+			{
+				ActiveSave->SaveProfileName = GameInst->PendingNewGameName;
+				GameInst->PendingNewGameName.Empty();
+			}
+		}
+
 		UGameplayStatics::SaveGameToSlot(ActiveSave, SaveSlotName, 0);
 	}
 
-	// --- NEW: Push loaded equipment tiers to the player's component ---
 	if (const ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
 	{
 		if (UEquipmentUpgradeComponent* UpgradeComp = PlayerChar->FindComponentByClass<UEquipmentUpgradeComponent>())
@@ -50,7 +70,7 @@ void AHarvestGameMode::SaveCurrentProfile()
 {
 	if (ActiveSave)
 	{
-		// --- NEW: Grab the latest equipment tiers from the player before saving ---
+		// Grab the latest equipment tiers from the player before saving
 		if (const ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
 		{
 			if (const UEquipmentUpgradeComponent* UpgradeComp = PlayerChar->FindComponentByClass<UEquipmentUpgradeComponent>())

@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "InventoryWidget.generated.h"
 
+class UImage;
 class UButton;
 class UTextBlock;
 class UHorizontalBox;
@@ -51,6 +52,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> Btn_Upgrade;
+	
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UImage> Img_SelectedIcon;
 
 private:
 	

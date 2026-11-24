@@ -1,6 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "VendimiaMainMenuWidget.h"
+
+#include "SaveMenuWidget.h"
+#include "SaveSlotWidget.h"
 #include "VendimiaHUD.h"
 #include "Components/Button.h"
 #include "Components/WidgetSwitcher.h"
@@ -9,31 +12,65 @@
 #include "GameFramework/PlayerController.h"
 #include "Components/Slider.h"
 #include "Components/ComboBoxString.h"
+#include "Components/EditableTextBox.h"
+#include "Components/VerticalBox.h"
 #include "GameFramework/GameUserSettings.h"
-#include "Sound/SoundMix.h"
-#include "Sound/SoundClass.h"
 #include "Vendimia/Game/HarvestGameMode.h"
+#include "Vendimia/Game/VendimiaGameInstance.h"
 #include "Vendimia/Game/VendimiaSaveGame.h"
 
 void UVendimiaMainMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	
+	if (Box_SaveSlots && SaveSlotClass)
+	{
+		Box_SaveSlots->ClearChildren();
+		
+		// Spawn exactly 3 slots
+		for (int32 i = 1; i <= 3; ++i)
+		{
+			if (USaveSlotWidget* NewSlot = CreateWidget<USaveSlotWidget>(this, SaveSlotClass))
+			{
+				NewSlot->InitializeSlot(i, this);
+				Box_SaveSlots->AddChildToVerticalBox(NewSlot);
+			}
+		}
+	}
 
-	// Bind button click events safely
 	if (Btn_NewGame)
 	{
-		Btn_NewGame->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnNewGameClicked);
-		Btn_NewGame->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnNewGameClicked);
+		Btn_NewGame->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnPlayGameClicked);
+		Btn_NewGame->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnPlayGameClicked);
 	}
 
 	if (Btn_LoadGame)
 	{
-		Btn_LoadGame->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnLoadGameClicked);
-		Btn_LoadGame->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnLoadGameClicked);
+		Btn_LoadGame->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnPlayGameClicked);
+		Btn_LoadGame->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnPlayGameClicked);
+	}
 
-		// Automatically disable "Load Game" if no save file exists on disk yet
-		const bool bHasSave = UGameplayStatics::DoesSaveGameExist(SaveSlotName, 0);
-		Btn_LoadGame->SetIsEnabled(bHasSave);
+	if (Btn_BackFromNewLoadGame)
+	{
+		Btn_BackFromNewLoadGame->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnBackToMainClicked);
+		Btn_BackFromNewLoadGame->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnBackToMainClicked);
+	}
+
+	if (Btn_ConfirmNewGame)
+	{
+		Btn_ConfirmNewGame->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnConfirmNewGameClicked);
+		Btn_ConfirmNewGame->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnConfirmNewGameClicked);
+	}
+
+	if (Btn_CancelNewGame)
+	{
+		Btn_CancelNewGame->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnCancelNewGameClicked);
+		Btn_CancelNewGame->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnCancelNewGameClicked);
+	}
+
+	if (Overlay_NamingPopup)
+	{
+		Overlay_NamingPopup->SetVisibility(ESlateVisibility::Hidden);
 	}
 
 	if (Btn_Settings)
@@ -64,6 +101,12 @@ void UVendimiaMainMenuWidget::NativeConstruct()
 	{
 		Btn_BackFromCredits->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnBackToMainClicked);
 		Btn_BackFromCredits->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnBackToMainClicked);
+	}
+	
+	if (Btn_BackFromNewLoadGame)
+	{
+		Btn_BackFromNewLoadGame->OnClicked.RemoveDynamic(this, &UVendimiaMainMenuWidget::OnBackToMainClicked);
+		Btn_BackFromNewLoadGame->OnClicked.AddDynamic(this, &UVendimiaMainMenuWidget::OnBackToMainClicked);
 	}
 	
 	if (Cmb_GraphicsQuality)
@@ -143,53 +186,68 @@ void UVendimiaMainMenuWidget::NativeConstruct()
 	}
 }
 
-void UVendimiaMainMenuWidget::OnNewGameClicked()
+void UVendimiaMainMenuWidget::HandleSlotSelection(const FString& SelectedSlotName, bool bIsOccupied)
 {
-	// 1. Delete existing save on disk
-	if (UGameplayStatics::DoesSaveGameExist(SaveSlotName, 0))
+	if (bIsOccupied)
 	{
-		UGameplayStatics::DeleteGameInSlot(SaveSlotName, 0);
+		// Load existing profile immediately
+		LaunchGameWithSlot(SelectedSlotName);
 	}
-
-	// 2. Tell HarvestGameMode to re-initialize a fresh save profile in memory
-	if (AHarvestGameMode* GameMode = Cast<AHarvestGameMode>(UGameplayStatics::GetGameMode(this)))
+	else
 	{
-		// Replace with your GameMode's init/load function name if different
-		GameMode->InitSaveGame(); 
-	}
+		// Store slot choice and reveal the custom name prompt
+		PendingSlotChoice = SelectedSlotName;
 
-	// 3. Hide the Main Menu and reveal the minimal Gameplay HUD
-	if (const APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
-	{
-		if (AVendimiaHUD* HUD = Cast<AVendimiaHUD>(PC->GetHUD()))
+		if (Txt_SaveNameInput)
 		{
-			HUD->HideMainMenu();
-			HUD->ShowGameplayHUD();
+			Txt_SaveNameInput->SetText(FText::GetEmpty());
+		}
+
+		if (Overlay_NamingPopup)
+		{
+			Overlay_NamingPopup->SetVisibility(ESlateVisibility::Visible);
 		}
 	}
 }
 
-void UVendimiaMainMenuWidget::OnLoadGameClicked()
+void UVendimiaMainMenuWidget::OnPlayGameClicked()
 {
-	if (!UGameplayStatics::DoesSaveGameExist(SaveSlotName, 0))
+	// 1. If we haven't created the menu yet, spawn it and add it to the Switcher
+	if (!SaveMenuInstance && SaveMenuClass)
 	{
-		return;
-	}
-
-	// 1. Ensure HarvestGameMode loads the latest disk state
-	if (AHarvestGameMode* GameMode = Cast<AHarvestGameMode>(UGameplayStatics::GetGameMode(this)))
-	{
-		GameMode->InitSaveGame();
-	}
-
-	// 2. Hide the Main Menu and reveal the minimal Gameplay HUD
-	if (const APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
-	{
-		if (AVendimiaHUD* HUD = Cast<AVendimiaHUD>(PC->GetHUD()))
+		SaveMenuInstance = CreateWidget<USaveMenuWidget>(this, SaveMenuClass);
+		
+		if (SaveMenuInstance)
 		{
-			HUD->HideMainMenu();
-			HUD->ShowGameplayHUD();
+			// Listen for when the Save Menu's back button is clicked
+			SaveMenuInstance->OnReturnRequested.AddDynamic(this, &UVendimiaMainMenuWidget::OnSaveMenuReturn);
+			
+			// Inject it directly into the Switcher programmatically
+			if (MenuSwitcher)
+			{
+				MenuSwitcher->AddChild(SaveMenuInstance);
+			}
 		}
+	}
+
+	// 2. Tell the Save Menu to refresh its slots (read the hard drive)
+	if (SaveMenuInstance)
+	{
+		SaveMenuInstance->RefreshSaveSlots();
+	}
+
+	// 3. Swap the Switcher over to our dynamically added widget
+	if (MenuSwitcher && SaveMenuInstance)
+	{
+		MenuSwitcher->SetActiveWidget(SaveMenuInstance);
+	}
+}
+
+void UVendimiaMainMenuWidget::OnSaveMenuReturn()
+{
+	if (MenuSwitcher && MainPanel)
+	{
+		MenuSwitcher->SetActiveWidget(MainPanel);
 	}
 }
 
@@ -214,6 +272,64 @@ void UVendimiaMainMenuWidget::OnBackToMainClicked()
 	if (MenuSwitcher && MainPanel)
 	{
 		MenuSwitcher->SetActiveWidget(MainPanel);
+	}
+}
+
+void UVendimiaMainMenuWidget::OnConfirmNewGameClicked()
+{
+	if (PendingSlotChoice.IsEmpty()) return;
+
+	FString ChosenName = Txt_SaveNameInput ? Txt_SaveNameInput->GetText().ToString().TrimStartAndEnd() : TEXT("");
+	if (ChosenName.IsEmpty())
+	{
+		// Fallback name if the player leaves the input box blank
+		ChosenName = FString::Printf(TEXT("Vineyard %s"), *PendingSlotChoice.Right(1));
+	}
+
+	if (Overlay_NamingPopup)
+	{
+		Overlay_NamingPopup->SetVisibility(ESlateVisibility::Hidden);
+	}
+
+	LaunchGameWithSlot(PendingSlotChoice, ChosenName);
+}
+
+void UVendimiaMainMenuWidget::OnCancelNewGameClicked()
+{
+	PendingSlotChoice.Empty();
+
+	if (Overlay_NamingPopup)
+	{
+		Overlay_NamingPopup->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
+void UVendimiaMainMenuWidget::LaunchGameWithSlot(const FString& SlotName, const FString& NewProfileName)
+{
+	if (UVendimiaGameInstance* GameInst = Cast<UVendimiaGameInstance>(GetGameInstance()))
+	{
+		GameInst->ActiveSaveSlot = SlotName;
+		GameInst->PendingNewGameName = NewProfileName;
+	}
+
+	// If the Main Menu is overlaid on the gameplay level, initialize save and swap HUD
+	if (AHarvestGameMode* GameMode = Cast<AHarvestGameMode>(UGameplayStatics::GetGameMode(this)))
+	{
+		GameMode->InitSaveGame();
+
+		if (const APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+		{
+			if (AVendimiaHUD* HUD = Cast<AVendimiaHUD>(PC->GetHUD()))
+			{
+				HUD->HideMainMenu();
+				HUD->ShowGameplayHUD();
+			}
+		}
+	}
+	else
+	{
+		// Fallback if Main Menu is on a separate map
+		UGameplayStatics::OpenLevel(this, GameplayLevelName);
 	}
 }
 
@@ -261,5 +377,21 @@ void UVendimiaMainMenuWidget::OnFXVolumeChanged(float Value)
 	{
 		SettingsSaveInstance->FXVolume = Value;
 		UGameplayStatics::SaveGameToSlot(SettingsSaveInstance, SettingsSlotName, 0);
+	}
+}
+
+void UVendimiaMainMenuWidget::RefreshSaveSlots()
+{
+	if (!Box_SaveSlots || !SaveSlotClass) return;
+
+	Box_SaveSlots->ClearChildren();
+
+	for (int32 i = 1; i <= 3; ++i)
+	{
+		if (USaveSlotWidget* NewSlot = CreateWidget<USaveSlotWidget>(this, SaveSlotClass))
+		{
+			NewSlot->InitializeSlot(i, this);
+			Box_SaveSlots->AddChildToVerticalBox(NewSlot);
+		}
 	}
 }

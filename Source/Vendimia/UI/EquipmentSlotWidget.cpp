@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "EquipmentSlotWidget.h"
+
+#include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
 #include "Vendimia/Data/EquipmentData.h"
@@ -12,7 +14,16 @@ void UEquipmentSlotWidget::NativeConstruct()
 
 	if (Btn_Select)
 	{
-		Btn_Select->OnClicked.AddDynamic(this, &UEquipmentSlotWidget::OnSlotClicked);
+		Btn_Select->OnClicked.AddUniqueDynamic(this, &UEquipmentSlotWidget::OnSlotClicked);
+	}
+}
+
+void UEquipmentSlotWidget::SetSelected(bool bIsSelected)
+{
+	if (Border_Highlight)
+	{
+		// Use HitTestInvisible so the border doesn't block the mouse from clicking the button underneath
+		Border_Highlight->SetVisibility(bIsSelected ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
 	}
 }
 

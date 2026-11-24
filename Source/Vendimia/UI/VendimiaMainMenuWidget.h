@@ -14,15 +14,45 @@ class UComboBoxString;
 class USoundMix;
 class USoundClass;
 class UVendimiaSaveGame;
+class UVerticalBox;
+class USaveSlotWidget;
+class UEditableTextBox;
+class USaveMenuWidget;
 
 UCLASS()
 class VENDIMIA_API UVendimiaMainMenuWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
+public:
+	
+	void RefreshSaveSlots();
+	void HandleSlotSelection(const FString& SelectedSlotName, bool bIsOccupied);
+	
 protected:
 	
 	virtual void NativeConstruct() override;
+	
+	// --- Save Slots & Naming Popup Widgets ---
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UVerticalBox> Box_SaveSlots;
+
+	/** Root container for the New Game name prompt (Overlay or Border) */
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UWidget> Overlay_NamingPopup;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> Txt_SaveNameInput;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UButton> Btn_ConfirmNewGame;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UButton> Btn_CancelNewGame;
+
+	/** Assign WBP_SaveSlot in WBP_MainMenu Class Defaults */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MainMenu|Saves")
+	TSubclassOf<USaveSlotWidget> SaveSlotClass;
 	
 	/** Name of your vineyard gameplay level (e.g., "Lvl_Vineyard") */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MainMenu")
@@ -38,6 +68,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	TObjectPtr<UWidget> MainPanel;
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UWidget> NewLoadGamePanel;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	TObjectPtr<UWidget> SettingsPanel;
@@ -62,6 +95,9 @@ protected:
 	TObjectPtr<UButton> Btn_Quit;
 
 	// --- Back Buttons inside Settings and Credits Panels ---
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	TObjectPtr<UButton> Btn_BackFromNewLoadGame;
+	
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	TObjectPtr<UButton> Btn_BackFromSettings;
 
@@ -97,14 +133,25 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UVendimiaSaveGame> SettingsSaveInstance;
+	
+	/** The class to spawn for the Save/Load menu */
+	UPROPERTY(EditDefaultsOnly, Category = "MainMenu|Panels")
+	TSubclassOf<USaveMenuWidget> SaveMenuClass;
 
 private:
 	
+	FString PendingSlotChoice;
+
+	void LaunchGameWithSlot(const FString& SlotName, const FString& NewProfileName = TEXT(""));
+	
 	UFUNCTION()
-	void OnNewGameClicked();
+	void OnConfirmNewGameClicked();
 
 	UFUNCTION()
-	void OnLoadGameClicked();
+	void OnCancelNewGameClicked();
+	
+	UFUNCTION()
+	void OnPlayGameClicked();
 
 	UFUNCTION()
 	void OnSettingsClicked();
@@ -126,4 +173,12 @@ private:
 
 	UFUNCTION()
 	void OnFXVolumeChanged(float Value);
+	
+	/** Holds the dynamically created widget */
+	UPROPERTY()
+	TObjectPtr<USaveMenuWidget> SaveMenuInstance;
+
+	/** Called when the Save Menu broadcasts its back button event */
+	UFUNCTION()
+	void OnSaveMenuReturn();
 };
